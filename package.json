@@ -1,0 +1,49 @@
+{
+  "name": "emfts",
+  "version": "1.0.0",
+  "description": "TypeScript interfaces for Eclipse EMF Core",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepare": "husky"
+  },
+  "keywords": [
+    "emf",
+    "eclipse",
+    "modeling",
+    "ecore",
+    "typescript"
+  ],
+  "author": "",
+  "license": "EPL-2.0",
+  "devDependencies": {
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "@types/node": "^24.10.1",
+    "@types/sax": "^1.2.7",
+    "husky": "^9.0.0",
+    "sax": "^1.4.3",
+    "typescript": "^5.0.0",
+    "vitepress": "^1.6.4",
+    "vitest": "^4.0.15"
+  },
+  "peerDependencies": {
+    "sax": "^1.4.3"
+  }
+}
