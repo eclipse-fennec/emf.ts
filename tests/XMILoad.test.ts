@@ -334,4 +334,56 @@ describe('XMI Loading with Nested Elements', () => {
     expect(nested).not.toBeNull();
     expect(nested!.getName()).toBe('nested');
   });
+
+  it('should resolve forward references using xmi:id (fixes #3)', () => {
+    // This tests the fix for GitHub Issue #3:
+    // XMI Loader: Unresolved internal cross-references (forward references)
+    // When an object references another object that appears later in the document,
+    // the reference should be resolved after all objects have been created.
+    const ecoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="test" nsURI="http://test.example.com" nsPrefix="test">
+  <eClassifiers xsi:type="ecore:EClass" xmi:id="class_person" name="Person">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="address" eType="#class_address"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" xmi:id="class_address" name="Address">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="street" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+    const uri = URI.createURI('test://forward-ref.ecore');
+    const resource = new XMIResource(uri);
+    resource.setResourceSet(resourceSet);
+
+    resource.loadFromString(ecoreXML);
+
+    // Log any errors for debugging
+    const errors = resource.getErrors();
+    if (errors.length > 0) {
+      console.log('Errors:', errors.map(e => e.message));
+    }
+
+    // Should have no unresolved reference errors
+    expect(errors.length).toBe(0);
+
+    // Verify the structure
+    const pkg = resource.getContents()[0] as any;
+    expect(pkg.getName()).toBe('test');
+    expect(pkg.getEClassifiers().length).toBe(2);
+
+    const personClass = pkg.getEClassifiers()[0] as any;
+    expect(personClass.getName()).toBe('Person');
+
+    const addressClass = pkg.getEClassifiers()[1] as any;
+    expect(addressClass.getName()).toBe('Address');
+
+    // Verify the forward reference was resolved
+    const addressRef = personClass.getEStructuralFeatures()[0] as any;
+    expect(addressRef.getName()).toBe('address');
+
+    // The eType should point to Address class (not null or unresolved)
+    const eType = addressRef.getEType();
+    expect(eType).not.toBeNull();
+    expect(eType.getName()).toBe('Address');
+  });
 });
