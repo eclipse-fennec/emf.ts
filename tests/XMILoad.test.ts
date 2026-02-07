@@ -386,4 +386,53 @@ describe('XMI Loading with Nested Elements', () => {
     expect(eType).not.toBeNull();
     expect(eType.getName()).toBe('Address');
   });
+
+  it('should resolve space-separated IDs in multi-valued references (fixes #4)', () => {
+    // This tests the fix for GitHub Issue #4:
+    // XMI: Support space-separated ID references in multi-valued attributes
+    // For multi-valued references, the value may contain space-separated IDs
+    // that should each be resolved individually.
+    const ecoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="test" nsURI="http://test.example.com" nsPrefix="test">
+  <eClassifiers xsi:type="ecore:EClass" xmi:id="class_a" name="ClassA"
+      eSuperTypes="#class_b #class_c"/>
+  <eClassifiers xsi:type="ecore:EClass" xmi:id="class_b" name="ClassB"/>
+  <eClassifiers xsi:type="ecore:EClass" xmi:id="class_c" name="ClassC"/>
+</ecore:EPackage>`;
+
+    const uri = URI.createURI('test://multi-ref.ecore');
+    const resource = new XMIResource(uri);
+    resource.setResourceSet(resourceSet);
+
+    resource.loadFromString(ecoreXML);
+
+    // Log any errors for debugging
+    const errors = resource.getErrors();
+    if (errors.length > 0) {
+      console.log('Errors:', errors.map(e => e.message));
+    }
+
+    // Should have no unresolved reference errors
+    expect(errors.length).toBe(0);
+
+    // Verify the structure
+    const pkg = resource.getContents()[0] as any;
+    expect(pkg.getEClassifiers().length).toBe(3);
+
+    const classA = pkg.getEClassifiers()[0] as any;
+    expect(classA.getName()).toBe('ClassA');
+
+    const classB = pkg.getEClassifiers()[1] as any;
+    expect(classB.getName()).toBe('ClassB');
+
+    const classC = pkg.getEClassifiers()[2] as any;
+    expect(classC.getName()).toBe('ClassC');
+
+    // Verify the space-separated super types were resolved
+    const superTypes = classA.getESuperTypes();
+    expect(superTypes.length).toBe(2);
+    expect(superTypes[0].getName()).toBe('ClassB');
+    expect(superTypes[1].getName()).toBe('ClassC');
+  });
 });
