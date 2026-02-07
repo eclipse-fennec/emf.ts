@@ -14,6 +14,151 @@ import { BasicEObject } from './BasicEObject';
 import { EAnnotation } from '../EAnnotation';
 import { BasicEFactory } from './BasicEFactory';
 import { ecoreRegistry } from '../ecore/EcoreRegistry';
+import { BasicEList, createIndexedProxy } from '../EList';
+import type { EList } from '../EList';
+
+/**
+ * Containment EList for EPackage.eClassifiers
+ * Manages the bidirectional ePackage <-> eClassifiers relationship
+ * and sends notifications on modifications.
+ */
+class EClassifiersEList extends BasicEList<EClassifier> {
+  private pkg: BasicEPackage;
+
+  constructor(pkg: BasicEPackage) {
+    super(pkg, null); // feature will be resolved lazily
+    this.pkg = pkg;
+  }
+
+  /**
+   * Lazily resolve the eClassifiers feature from EcorePackage.
+   * This avoids circular dependency issues during initialization.
+   */
+  override getFeature() {
+    if (!this.feature) {
+      const isReg = ecoreRegistry.isRegistered();
+      console.log('[EClassifiersEList] getFeature - isRegistered:', isReg);
+      if (isReg) {
+        const ePackageClass = ecoreRegistry.getEPackageClass();
+        this.feature = ePackageClass.getEStructuralFeature('eClassifiers');
+        console.log('[EClassifiersEList] Resolved feature:', this.feature?.getName());
+      }
+    }
+    return this.feature;
+  }
+
+  protected override didAdd(index: number, element: EClassifier): void {
+    // Set back-reference: classifier.ePackage = this package
+    if ('setEPackage' in element && typeof (element as any).setEPackage === 'function') {
+      (element as any).setEPackage(this.pkg);
+    }
+    super.didAdd(index, element);
+  }
+
+  protected override didAddMany(index: number, elements: EClassifier[]): void {
+    for (const element of elements) {
+      if ('setEPackage' in element && typeof (element as any).setEPackage === 'function') {
+        (element as any).setEPackage(this.pkg);
+      }
+    }
+    super.didAddMany(index, elements);
+  }
+
+  protected override didRemove(index: number, element: EClassifier): void {
+    // Clear back-reference: classifier.ePackage = null
+    if ('setEPackage' in element && typeof (element as any).setEPackage === 'function') {
+      (element as any).setEPackage(null);
+    }
+    super.didRemove(index, element);
+  }
+
+  protected override didClear(oldData: EClassifier[]): void {
+    for (const element of oldData) {
+      if ('setEPackage' in element && typeof (element as any).setEPackage === 'function') {
+        (element as any).setEPackage(null);
+      }
+    }
+    super.didClear(oldData);
+  }
+
+  protected override didSet(index: number, newElement: EClassifier, oldElement: EClassifier): void {
+    if ('setEPackage' in oldElement && typeof (oldElement as any).setEPackage === 'function') {
+      (oldElement as any).setEPackage(null);
+    }
+    if ('setEPackage' in newElement && typeof (newElement as any).setEPackage === 'function') {
+      (newElement as any).setEPackage(this.pkg);
+    }
+    super.didSet(index, newElement, oldElement);
+  }
+}
+
+/**
+ * Containment EList for EPackage.eSubpackages
+ * Manages the bidirectional eSuperPackage <-> eSubpackages relationship
+ * and sends notifications on modifications.
+ */
+class ESubpackagesEList extends BasicEList<EPackage> {
+  private pkg: BasicEPackage;
+
+  constructor(pkg: BasicEPackage) {
+    super(pkg, null); // feature will be resolved lazily
+    this.pkg = pkg;
+  }
+
+  /**
+   * Lazily resolve the eSubpackages feature from EcorePackage.
+   * This avoids circular dependency issues during initialization.
+   */
+  override getFeature() {
+    if (!this.feature && ecoreRegistry.isRegistered()) {
+      const ePackageClass = ecoreRegistry.getEPackageClass();
+      this.feature = ePackageClass.getEStructuralFeature('eSubpackages');
+    }
+    return this.feature;
+  }
+
+  protected override didAdd(index: number, element: EPackage): void {
+    if (element instanceof BasicEPackage) {
+      (element as any).eSuperPackage = this.pkg;
+    }
+    super.didAdd(index, element);
+  }
+
+  protected override didAddMany(index: number, elements: EPackage[]): void {
+    for (const element of elements) {
+      if (element instanceof BasicEPackage) {
+        (element as any).eSuperPackage = this.pkg;
+      }
+    }
+    super.didAddMany(index, elements);
+  }
+
+  protected override didRemove(index: number, element: EPackage): void {
+    if (element instanceof BasicEPackage) {
+      (element as any).eSuperPackage = null;
+    }
+    super.didRemove(index, element);
+  }
+
+  protected override didClear(oldData: EPackage[]): void {
+    for (const element of oldData) {
+      if (element instanceof BasicEPackage) {
+        (element as any).eSuperPackage = null;
+      }
+    }
+    super.didClear(oldData);
+  }
+
+  protected override didSet(index: number, newElement: EPackage, oldElement: EPackage): void {
+    if (oldElement instanceof BasicEPackage) {
+      (oldElement as any).eSuperPackage = null;
+    }
+    if (newElement instanceof BasicEPackage) {
+      (newElement as any).eSuperPackage = this.pkg;
+    }
+    super.didSet(index, newElement, oldElement);
+  }
+}
 
 /**
  * Basic EPackage implementation
@@ -24,8 +169,8 @@ export class BasicEPackage extends BasicEObject implements EPackage {
   private nsURI: string | null = null;
   private nsPrefix: string | null = null;
   private eFactoryInstance: EFactory | null = null;
-  private eClassifiers: EClassifier[] = [];
-  private eSubpackages: EPackage[] = [];
+  private _eClassifiers: EList<EClassifier> | null = null;
+  private _eSubpackages: EList<EPackage> | null = null;
   private eSuperPackage: EPackage | null = null;
 
   /**
@@ -75,12 +220,18 @@ export class BasicEPackage extends BasicEObject implements EPackage {
     this.eFactoryInstance = value;
   }
 
-  getEClassifiers(): EClassifier[] {
-    return this.eClassifiers;
+  getEClassifiers(): EList<EClassifier> {
+    if (!this._eClassifiers) {
+      this._eClassifiers = createIndexedProxy(new EClassifiersEList(this));
+    }
+    return this._eClassifiers;
   }
 
-  getESubpackages(): EPackage[] {
-    return this.eSubpackages;
+  getESubpackages(): EList<EPackage> {
+    if (!this._eSubpackages) {
+      this._eSubpackages = createIndexedProxy(new ESubpackagesEList(this));
+    }
+    return this._eSubpackages;
   }
 
   getESuperPackage(): EPackage | null {
@@ -88,44 +239,38 @@ export class BasicEPackage extends BasicEObject implements EPackage {
   }
 
   getEClassifier(name: string): EClassifier | null {
-    return this.eClassifiers.find(c => {
+    const classifiers = this.getEClassifiers();
+    for (const c of classifiers) {
       // Handle both static and dynamic EObjects
       if (typeof c.getName === 'function') {
-        return c.getName() === name;
+        if (c.getName() === name) return c;
       }
       // For dynamic objects, use eGet
-      if (typeof (c as any).eGet === 'function' && typeof (c as any).eClass === 'function') {
+      else if (typeof (c as any).eGet === 'function' && typeof (c as any).eClass === 'function') {
         const eClass = (c as any).eClass();
         if (eClass) {
           const nameFeature = eClass.getEStructuralFeature?.('name');
-          if (nameFeature) {
-            return (c as any).eGet(nameFeature) === name;
+          if (nameFeature && (c as any).eGet(nameFeature) === name) {
+            return c;
           }
         }
       }
-      return false;
-    }) || null;
+    }
+    return null;
   }
 
   /**
    * Add classifier to this package
    */
   protected addClassifier(classifier: EClassifier): void {
-    this.eClassifiers.push(classifier);
-    // Set back-reference to this package
-    if ('setEPackage' in classifier && typeof (classifier as any).setEPackage === 'function') {
-      (classifier as any).setEPackage(this);
-    }
+    this.getEClassifiers().add(classifier);
   }
 
   /**
    * Add subpackage
    */
   protected addSubpackage(pkg: EPackage): void {
-    this.eSubpackages.push(pkg);
-    if (pkg instanceof BasicEPackage) {
-      (pkg as any).eSuperPackage = this;
-    }
+    this.getESubpackages().add(pkg);
   }
 
   // EObject methods
@@ -154,9 +299,9 @@ export class BasicEPackage extends BasicEObject implements EPackage {
       case 'nsPrefix':
         return this.nsPrefix;
       case 'eClassifiers':
-        return this.eClassifiers;
+        return this.getEClassifiers();
       case 'eSubpackages':
-        return this.eSubpackages;
+        return this.getESubpackages();
       case 'eSuperPackage':
         return this.eSuperPackage;
       case 'eFactoryInstance':
@@ -174,35 +319,43 @@ export class BasicEPackage extends BasicEObject implements EPackage {
     switch (featureName) {
       case 'name':
         this.name = newValue;
+        // Fire notification via super
+        super.eSet(feature, newValue);
         break;
       case 'nsURI':
         this.nsURI = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'nsPrefix':
         this.nsPrefix = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'eClassifiers':
-        // Handle both setting entire array and individual items
-        if (Array.isArray(newValue)) {
-          this.eClassifiers = newValue;
-          // Set back-reference to this package for all classifiers
-          for (const classifier of newValue) {
-            if ('setEPackage' in classifier && typeof (classifier as any).setEPackage === 'function') {
-              (classifier as any).setEPackage(this);
-            }
+        // Clear and add all - EList handles back-references automatically
+        if (Array.isArray(newValue) || (newValue && typeof newValue[Symbol.iterator] === 'function')) {
+          const list = this.getEClassifiers();
+          list.clear();
+          for (const item of newValue) {
+            list.add(item);
           }
         }
         break;
       case 'eSubpackages':
-        if (Array.isArray(newValue)) {
-          this.eSubpackages = newValue;
+        if (Array.isArray(newValue) || (newValue && typeof newValue[Symbol.iterator] === 'function')) {
+          const list = this.getESubpackages();
+          list.clear();
+          for (const item of newValue) {
+            list.add(item);
+          }
         }
         break;
       case 'eSuperPackage':
         this.eSuperPackage = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'eFactoryInstance':
         this.eFactoryInstance = newValue;
+        super.eSet(feature, newValue);
         break;
       default:
         super.eSet(feature, newValue);

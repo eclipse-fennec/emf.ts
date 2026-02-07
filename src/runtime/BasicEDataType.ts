@@ -175,17 +175,21 @@ export class BasicEDataType extends BasicEObject implements EDataType {
     switch (featureName) {
       case 'name':
         this.name = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'instanceClassName':
         this.instanceClassName = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'serializable':
         this.serializable = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'eAnnotations':
         if (Array.isArray(newValue)) {
           this.eAnnotations = newValue;
         }
+        super.eSet(feature, newValue);
         break;
       default:
         super.eSet(feature, newValue);

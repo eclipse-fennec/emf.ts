@@ -120,17 +120,21 @@ export class BasicEReference extends BasicEStructuralFeature implements EReferen
     switch (featureName) {
       case 'containment':
         this.containment = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'resolveProxies':
         this.resolveProxies = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'eOpposite':
         this.eOpposite = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'eKeys':
         if (Array.isArray(newValue)) {
           this.eKeys = newValue;
         }
+        super.eSet(feature, newValue);
         break;
       default:
         super.eSet(feature, newValue);

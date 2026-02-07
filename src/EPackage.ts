@@ -9,6 +9,7 @@
 import { ENamedElement } from './ENamedElement';
 import { EClassifier } from './EClassifier';
 import { EFactory } from './EFactory';
+import type { EList } from './EList';
 
 /**
  * A representation of the model object 'EPackage'.
@@ -50,13 +51,15 @@ export interface EPackage extends ENamedElement {
 
   /**
    * Returns the list of classifiers (classes and data types) defined in this package.
+   * This is a containment EList that manages the bidirectional eClassifiers <-> ePackage relationship.
    */
-  getEClassifiers(): EClassifier[];
+  getEClassifiers(): EList<EClassifier>;
 
   /**
    * Returns the list of nested packages contained by this package.
+   * This is a containment EList that manages the bidirectional eSubpackages <-> eSuperPackage relationship.
    */
-  getESubpackages(): EPackage[];
+  getESubpackages(): EList<EPackage>;
 
   /**
    * Returns the containing package of this package.
@@ -116,6 +119,31 @@ export namespace EPackageRegistry {
   export const INSTANCE: EPackageRegistry = createGlobalRegistry();
 }
 
+/**
+ * Recursively registers all subpackages of the given package.
+ * This ensures that nested packages with their own nsURI can be resolved
+ * by the registry when loading XMI files.
+ *
+ * NOTE: This is an intentional enhancement over Java EMF behavior.
+ * In Java EMF, subpackages must be registered separately (either via
+ * generated code or explicit registration). This implementation
+ * automatically registers subpackages to better support dynamically
+ * loaded packages (e.g., loading .ecore files at runtime).
+ */
+function registerSubpackages(
+  map: Map<string, EPackage | EPackageDescriptor>,
+  pkg: EPackage
+): void {
+  for (const subPkg of pkg.getESubpackages()) {
+    const subNsURI = subPkg.getNsURI();
+    if (subNsURI) {
+      map.set(subNsURI, subPkg);
+    }
+    // Recursively register nested subpackages
+    registerSubpackages(map, subPkg);
+  }
+}
+
 function createGlobalRegistry(): EPackageRegistry {
   const map = new Map<string, EPackage | EPackageDescriptor>();
 
@@ -144,6 +172,10 @@ function createGlobalRegistry(): EPackageRegistry {
 
     set(nsURI: string, value: EPackage | EPackageDescriptor) {
       map.set(nsURI, value);
+      // If it's an EPackage (not a descriptor), also register its subpackages
+      if (!('getEPackage' in value)) {
+        registerSubpackages(map, value as EPackage);
+      }
     },
 
     delete(nsURI: string) {

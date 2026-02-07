@@ -12,6 +12,7 @@ import { URI } from '../URI';
 import { EObject } from '../EObject';
 import { EPackage, EPackageRegistry } from '../EPackage';
 import { BasicResource } from './BasicResource';
+import { EList, BasicEList, createIndexedProxy } from '../EList';
 
 /**
  * Basic ResourceSet implementation
@@ -186,6 +187,25 @@ export class BasicResourceSet implements ResourceSet {
   private createDefaultPackageRegistry(): EPackageRegistry {
     const map = new Map<string, any>();
 
+    /**
+     * Recursively registers all subpackages of the given package.
+     * This ensures that nested packages with their own nsURI can be resolved.
+     *
+     * NOTE: This is an intentional enhancement over Java EMF behavior.
+     * In Java EMF, subpackages must be registered separately. This implementation
+     * automatically registers subpackages to support dynamically loaded packages.
+     */
+    function registerSubpackages(pkg: EPackage): void {
+      for (const subPkg of pkg.getESubpackages()) {
+        const subNsURI = subPkg.getNsURI();
+        if (subNsURI) {
+          map.set(subNsURI, subPkg);
+        }
+        // Recursively register nested subpackages
+        registerSubpackages(subPkg);
+      }
+    }
+
     return {
       getEPackage(nsURI: string) {
         // First check local map
@@ -209,6 +229,10 @@ export class BasicResourceSet implements ResourceSet {
 
       set(nsURI: string, value: any) {
         map.set(nsURI, value);
+        // If it's an EPackage (not a descriptor), also register its subpackages
+        if (value && !('getEPackage' in value) && typeof value.getESubpackages === 'function') {
+          registerSubpackages(value as EPackage);
+        }
       },
 
       delete(nsURI: string) {
@@ -280,10 +304,15 @@ class SyntheticPackageResource implements Resource {
   private uri: URI;
   private resourceSet: ResourceSet | null = null;
   public readonly _syntheticPackage: EPackage;
+  private _contents: EList<EObject>;
 
   constructor(uri: URI, ePackage: EPackage) {
     this.uri = uri;
     this._syntheticPackage = ePackage;
+    // Create a simple EList containing the package
+    const list = new BasicEList<EObject>(null, null);
+    list.add(ePackage as unknown as EObject);
+    this._contents = createIndexedProxy(list);
   }
 
   getResourceSet(): ResourceSet | null {
@@ -302,12 +331,12 @@ class SyntheticPackageResource implements Resource {
     if (uri) this.uri = uri;
   }
 
-  getContents(): EObject[] {
-    return [this._syntheticPackage as unknown as EObject];
+  getContents(): EList<EObject> {
+    return this._contents;
   }
 
   getAllContents(): IterableIterator<EObject> {
-    const contents = this.getContents();
+    const contents = this._contents.toArray();
     return contents[Symbol.iterator]();
   }
 

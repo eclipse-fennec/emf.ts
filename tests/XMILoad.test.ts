@@ -283,4 +283,55 @@ describe('XMI Loading with Nested Elements', () => {
     const notFound = resource.getEObject('//NonExistent');
     expect(notFound).toBeNull();
   });
+
+  it('should register subpackages when parent package is registered', () => {
+    // This tests the fix for GitHub Issue #1:
+    // XMI Loader: Support resolving subpackages by nsPrefix
+    // When a package with subpackages is registered, the subpackages
+    // should also be registered by their nsURI.
+    const ecoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="root" nsURI="http://example.com/root" nsPrefix="root">
+  <eSubpackages name="subpkg1" nsURI="http://example.com/subpkg1" nsPrefix="subpkg1">
+    <eClassifiers xsi:type="ecore:EClass" name="SubClass1"/>
+  </eSubpackages>
+  <eSubpackages name="subpkg2" nsURI="http://example.com/subpkg2" nsPrefix="subpkg2">
+    <eClassifiers xsi:type="ecore:EClass" name="SubClass2"/>
+    <eSubpackages name="nested" nsURI="http://example.com/nested" nsPrefix="nested">
+      <eClassifiers xsi:type="ecore:EClass" name="NestedClass"/>
+    </eSubpackages>
+  </eSubpackages>
+</ecore:EPackage>`;
+
+    const uri = URI.createURI('test://root.ecore');
+    const resource = new XMIResource(uri);
+    resource.setResourceSet(resourceSet);
+
+    resource.loadFromString(ecoreXML);
+
+    expect(resource.getErrors().length).toBe(0);
+
+    // Get the loaded root package
+    const rootPkg = resource.getContents()[0] as any;
+    expect(rootPkg.getName()).toBe('root');
+    expect(rootPkg.getESubpackages().length).toBe(2);
+
+    // Register the root package
+    const registry = resourceSet.getPackageRegistry();
+    registry.set('http://example.com/root', rootPkg);
+
+    // Now verify that subpackages are also registered
+    const subpkg1 = registry.getEPackage('http://example.com/subpkg1');
+    expect(subpkg1).not.toBeNull();
+    expect(subpkg1!.getName()).toBe('subpkg1');
+
+    const subpkg2 = registry.getEPackage('http://example.com/subpkg2');
+    expect(subpkg2).not.toBeNull();
+    expect(subpkg2!.getName()).toBe('subpkg2');
+
+    // Verify deeply nested subpackage is also registered
+    const nested = registry.getEPackage('http://example.com/nested');
+    expect(nested).not.toBeNull();
+    expect(nested!.getName()).toBe('nested');
+  });
 });

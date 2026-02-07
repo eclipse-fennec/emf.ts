@@ -8,6 +8,7 @@
 
 // Core metamodel interfaces
 export * from './EObject';
+export * from './EList';
 export * from './EModelElement';
 export * from './ENamedElement';
 export * from './EClassifier';

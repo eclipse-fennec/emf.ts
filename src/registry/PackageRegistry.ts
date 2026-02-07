@@ -128,6 +128,28 @@ export class ExtensionAwarePackageRegistry implements IEPackageRegistry {
 
   set(nsURI: string, value: EPackage): void {
     this.packages.set(nsURI, value);
+    // Also register all subpackages recursively
+    this.registerSubpackages(value);
+  }
+
+  /**
+   * Recursively registers all subpackages of the given package.
+   * This ensures that nested packages with their own nsURI can be resolved
+   * by the registry when loading XMI files.
+   *
+   * NOTE: This is an intentional enhancement over Java EMF behavior.
+   * In Java EMF, subpackages must be registered separately. This implementation
+   * automatically registers subpackages to support dynamically loaded packages.
+   */
+  private registerSubpackages(pkg: EPackage): void {
+    for (const subPkg of pkg.getESubpackages()) {
+      const subNsURI = subPkg.getNsURI();
+      if (subNsURI) {
+        this.packages.set(subNsURI, subPkg);
+      }
+      // Recursively register nested subpackages
+      this.registerSubpackages(subPkg);
+    }
   }
 
   delete(nsURI: string): boolean {

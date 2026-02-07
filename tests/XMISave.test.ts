@@ -38,6 +38,7 @@ import { BasicEReference } from '../src/runtime/BasicEReference';
 import { BasicResourceSet } from '../src/runtime/BasicResourceSet';
 import { EObject } from '../src/EObject';
 import { getEcorePackage } from '../src/ecore/EcorePackage';
+import { EProxyImpl } from '../src/runtime/EProxyImpl';
 
 /**
  * @description XMI Serialisierung
@@ -460,6 +461,241 @@ describe('XMI Serialization', () => {
       // Note: Full round-trip loading requires the XML to include proper namespace
       // declarations that map to registered packages. This is a more complex test
       // that depends on XMLSave writing xmlns:test="http://test.com/model" etc.
+    });
+
+    it('should load saved XML and preserve attribute values', async () => {
+      // Create and save
+      const saveResource = new XMIResource(URI.createURI('roundtrip2.xmi'));
+      saveResource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'RoundTrip Person');
+      person.eSet(personClass.getEStructuralFeature('age')!, 42);
+
+      saveResource.getContents().push(person);
+      const xml = saveResource.saveToString();
+
+      // Load into new resource
+      const loadResource = new XMIResource(URI.createURI('roundtrip2.xmi'));
+      loadResource.setResourceSet(resourceSet);
+      loadResource.loadFromString(xml);
+
+      // Verify loaded content
+      expect(loadResource.getContents().size()).toBe(1);
+      const loadedPerson = loadResource.getContents().get(0);
+
+      expect(loadedPerson.eClass().getName()).toBe('Person');
+      expect(loadedPerson.eGet(personClass.getEStructuralFeature('name')!)).toBe('RoundTrip Person');
+      expect(loadedPerson.eGet(personClass.getEStructuralFeature('age')!)).toBe(42);
+    });
+
+    it('should load saved XML with containment references', async () => {
+      // Create and save
+      const saveResource = new XMIResource(URI.createURI('roundtrip-containment.xmi'));
+      saveResource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'Parent');
+
+      const address1 = factory.create(addressClass);
+      address1.eSet(addressClass.getEStructuralFeature('street')!, 'First Street');
+      address1.eSet(addressClass.getEStructuralFeature('city')!, 'Berlin');
+
+      const address2 = factory.create(addressClass);
+      address2.eSet(addressClass.getEStructuralFeature('street')!, 'Second Street');
+      address2.eSet(addressClass.getEStructuralFeature('city')!, 'Munich');
+
+      const addressesList = person.eGet(personClass.getEStructuralFeature('addresses')!) as any;
+      addressesList.push(address1);
+      addressesList.push(address2);
+
+      saveResource.getContents().push(person);
+      const xml = saveResource.saveToString();
+
+      console.log('Containment round-trip XML:', xml);
+
+      // Load into new resource
+      const loadResource = new XMIResource(URI.createURI('roundtrip-containment.xmi'));
+      loadResource.setResourceSet(resourceSet);
+      loadResource.loadFromString(xml);
+
+      // Verify loaded content
+      expect(loadResource.getContents().size()).toBe(1);
+      const loadedPerson = loadResource.getContents().get(0);
+
+      expect(loadedPerson.eClass().getName()).toBe('Person');
+      expect(loadedPerson.eGet(personClass.getEStructuralFeature('name')!)).toBe('Parent');
+
+      const loadedAddresses = loadedPerson.eGet(personClass.getEStructuralFeature('addresses')!) as any;
+      expect(loadedAddresses.length).toBe(2);
+
+      const addr1 = loadedAddresses[0];
+      const addr2 = loadedAddresses[1];
+
+      expect(addr1.eGet(addressClass.getEStructuralFeature('street')!)).toBe('First Street');
+      expect(addr1.eGet(addressClass.getEStructuralFeature('city')!)).toBe('Berlin');
+      expect(addr2.eGet(addressClass.getEStructuralFeature('street')!)).toBe('Second Street');
+      expect(addr2.eGet(addressClass.getEStructuralFeature('city')!)).toBe('Munich');
+    });
+  });
+
+  /**
+   * @description Proxy Serialisierung
+   * Proxies werden korrekt als URIs serialisiert, nicht als "EProxy(...)".
+   */
+  describe('Proxy Serialization', () => {
+    it('should serialize resolved proxy as normal value', async () => {
+      // Create first resource with Address
+      const addressResource = new XMIResource(URI.createURI('proxy-test-address.xmi'));
+      addressResource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+
+      const address = factory.create(addressClass);
+      address.eSet(addressClass.getEStructuralFeature('street')!, 'Proxy Street');
+      address.eSet(addressClass.getEStructuralFeature('city')!, 'ProxyCity');
+
+      addressResource.getContents().push(address);
+      addressResource.setID(address, 'addr1');
+
+      // Create person resource
+      const personResource = new XMIResource(URI.createURI('proxy-test-person.xmi'));
+      personResource.setResourceSet(resourceSet);
+
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'ProxyTester');
+
+      // Create a proxy reference to the address
+      const proxy = new EProxyImpl(addressClass);
+      proxy.eSetProxyURI(URI.createURI('proxy-test-address.xmi#addr1'));
+
+      person.eSet(personClass.getEStructuralFeature('primaryAddress')!, proxy);
+      personResource.getContents().push(person);
+
+      const xml = personResource.saveToString();
+
+      console.log('Proxy serialization XML:', xml);
+
+      // Should NOT contain "EProxy"
+      expect(xml).not.toContain('EProxy');
+      // Should contain reference to the address resource
+      expect(xml).toContain('primaryAddress=');
+      expect(xml).toContain('proxy-test-address.xmi#addr1');
+    });
+
+    it('should serialize unresolved proxy as URI reference', () => {
+      const resource = new XMIResource(URI.createURI('unresolved-proxy.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'HasUnresolvedProxy');
+
+      // Create a proxy to a non-existent resource
+      const proxy = new EProxyImpl(addressClass);
+      proxy.eSetProxyURI(URI.createURI('non-existent.xmi#missing'));
+
+      person.eSet(personClass.getEStructuralFeature('primaryAddress')!, proxy);
+      resource.getContents().push(person);
+
+      const xml = resource.saveToString();
+
+      console.log('Unresolved proxy XML:', xml);
+
+      // Should NOT contain "EProxy"
+      expect(xml).not.toContain('EProxy');
+      // Should contain the proxy URI as href
+      expect(xml).toContain('primaryAddress=');
+      expect(xml).toContain('non-existent.xmi#missing');
+    });
+
+    it('should serialize boolean attribute as true/false, not EProxy', () => {
+      // Add a boolean attribute to Person
+      const boolType = new BasicEDataType();
+      boolType.setName('EBoolean');
+      boolType.setInstanceClassName('boolean');
+      boolType.setEPackage(testPackage);
+      testPackage.getEClassifiers().push(boolType);
+
+      const activeAttr = new BasicEAttribute();
+      activeAttr.setName('active');
+      activeAttr.setEType(boolType);
+      personClass.getEStructuralFeatures().push(activeAttr);
+
+      const resource = new XMIResource(URI.createURI('boolean-test.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'BoolTest');
+      person.eSet(personClass.getEStructuralFeature('active')!, true);
+
+      resource.getContents().push(person);
+
+      const xml = resource.saveToString();
+
+      console.log('Boolean serialization XML:', xml);
+
+      // Should contain active="true" not active="EProxy..." or anything else
+      expect(xml).toContain('active="true"');
+      expect(xml).not.toContain('EProxy');
+    });
+
+    it('should roundtrip cross-resource references through proxy', async () => {
+      // Create address resource
+      const addressResource = new XMIResource(URI.createURI('cross-addr.xmi'));
+      addressResource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+
+      const address = factory.create(addressClass);
+      address.eSet(addressClass.getEStructuralFeature('street')!, 'Cross Street');
+      address.eSet(addressClass.getEStructuralFeature('city')!, 'CrossCity');
+
+      addressResource.getContents().push(address);
+      addressResource.setID(address, 'cross_addr');
+
+      // Create and save person resource with reference
+      const personResource = new XMIResource(URI.createURI('cross-person.xmi'));
+      personResource.setResourceSet(resourceSet);
+
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'CrossRef');
+      person.eSet(personClass.getEStructuralFeature('primaryAddress')!, address);
+
+      personResource.getContents().push(person);
+
+      const xml = personResource.saveToString();
+      console.log('Cross-resource reference XML:', xml);
+
+      // Should reference the address in the other resource
+      expect(xml).toContain('primaryAddress=');
+      expect(xml).not.toContain('EProxy');
+
+      // Load person resource into new ResourceSet
+      const newResourceSet = new BasicResourceSet();
+      newResourceSet.getPackageRegistry().set('http://test.com/model', testPackage);
+
+      // First add the address resource to the new resource set
+      const newAddressResource = new XMIResource(URI.createURI('cross-addr.xmi'));
+      newAddressResource.setResourceSet(newResourceSet);
+      const addrXml = addressResource.saveToString();
+      newAddressResource.loadFromString(addrXml);
+
+      // Then load the person resource
+      const newPersonResource = new XMIResource(URI.createURI('cross-person.xmi'));
+      newPersonResource.setResourceSet(newResourceSet);
+      newPersonResource.loadFromString(xml);
+
+      // Check loaded person
+      const loadedPerson = newPersonResource.getContents().get(0);
+      expect(loadedPerson.eGet(personClass.getEStructuralFeature('name')!)).toBe('CrossRef');
+
+      // The primary address should be a proxy or resolvable
+      const loadedPrimaryAddr = loadedPerson.eGet(personClass.getEStructuralFeature('primaryAddress')!);
+      expect(loadedPrimaryAddr).toBeDefined();
     });
   });
 });

@@ -85,6 +85,7 @@ export class BasicEAttribute extends BasicEStructuralFeature implements EAttribu
     switch (featureName) {
       case 'iD':
         this.id = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       default:
         super.eSet(feature, newValue);

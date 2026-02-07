@@ -72,7 +72,7 @@ describe('XMI Loading', () => {
 
       expect(resource).toBeDefined();
       expect(resource.getURI()).toBe(uri);
-      expect(resource.getContents()).toEqual([]);
+      expect(resource.getContents().isEmpty()).toBe(true);
     });
 
     it('should be created by XMIResourceFactory', () => {

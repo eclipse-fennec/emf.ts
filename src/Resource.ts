@@ -9,6 +9,7 @@
 import { EObject } from './EObject';
 import { ResourceSet } from './ResourceSet';
 import { URI } from './URI';
+import { EList } from './EList';
 
 /**
  * A persistent document. A resource is typically contained by a resource set.
@@ -32,7 +33,7 @@ export interface Resource {
   /**
    * Returns the list of root objects.
    */
-  getContents(): EObject[];
+  getContents(): EList<EObject>;
 
   /**
    * Returns an iterator over all contents.
