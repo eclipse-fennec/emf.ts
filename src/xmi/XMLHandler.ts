@@ -648,7 +648,17 @@ export class XMLHandler {
       }
     } else {
       // It's a reference - handle as ID
-      this.setValueFromId(eObject, feature as EReference, value, position);
+      // For multi-valued references, the value may contain space-separated IDs
+      if (feature.isMany()) {
+        const ids = value.trim().split(/\s+/);
+        for (const id of ids) {
+          if (id) {
+            this.setValueFromId(eObject, feature as EReference, id, -1);
+          }
+        }
+      } else {
+        this.setValueFromId(eObject, feature as EReference, value, position);
+      }
     }
   }
 
