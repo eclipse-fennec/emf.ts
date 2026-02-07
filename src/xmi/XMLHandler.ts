@@ -18,6 +18,7 @@ import { Resource } from '../Resource';
 import { URI } from '../URI';
 import { InternalEObject, isInternalEObject } from '../InternalEObject';
 import { EProxyImpl } from '../runtime/EProxyImpl';
+ import { EList } from '../EList';
 import {
   XMLHelper,
   XMLHelperImpl,
@@ -35,6 +36,7 @@ export const ERROR_TYPE = 'error';
 export const OBJECT_TYPE = 'object';
 export const UNKNOWN_FEATURE_TYPE = 'unknownFeature';
 export const REFERENCE_TYPE = 'reference';
+export const XMI_WRAPPER_TYPE = 'xmiWrapper';
 
 /**
  * SAX Attributes interface
@@ -150,7 +152,7 @@ export class XMLHandler {
   protected needsPushContext: boolean = false;
 
   // Resource extent
-  protected extent: EObject[] = [];
+  protected extent: EList<EObject>;
   protected deferredExtent: EObject[] | null = null;
 
   // Options
@@ -227,7 +229,21 @@ export class XMLHandler {
       this.recordHeaderInformation();
     }
 
-    if (this.objects.length === 0) {
+    // Skip xmi:XMI wrapper element - it's just a container for multiple root objects
+    if (prefix === 'xmi' && localName === 'XMI') {
+      // Push marker to keep stacks in sync with endElement
+      this.objects.push(null);
+      this.types.push(XMI_WRAPPER_TYPE);
+      return;
+    }
+
+    // Check if we should create a top-level object:
+    // - Either the stack is empty, OR
+    // - The stack only contains the XMI wrapper marker (children of xmi:XMI are top objects)
+    const isTopLevel = this.objects.length === 0 ||
+      (this.objects.length === 1 && this.types[0] === XMI_WRAPPER_TYPE);
+
+    if (isTopLevel) {
       this.createTopObject(prefix, localName);
     } else {
       this.handleFeature(prefix, localName);
@@ -256,6 +272,9 @@ export class XMLHandler {
       // Reference element with href - just pop the null, reference was already handled
       this.objects.pop();
       this.text = null;
+    } else if (type === XMI_WRAPPER_TYPE) {
+      // XMI wrapper element - just pop the marker, no object was created
+      this.objects.pop();
     } else if (type !== undefined) {
       // It's a feature
       const eObject = this.objects.pop() || this.objects[this.objects.length - 1];
@@ -595,16 +614,19 @@ export class XMLHandler {
   protected setFeatureValue(eObject: EObject, feature: EStructuralFeature, value: string | null, position: number = -1): void {
     if (value === null || value === undefined) return;
 
-    const eType = feature.getEType();
+    // Check if it's an attribute or reference based on the feature itself
+    // EReference has 'isContainment' method, EAttribute does not
+    const isReference = 'isContainment' in feature;
 
-    if (eType && !('getESuperTypes' in eType)) {
-      // It's a data type
+    if (!isReference) {
+      // It's an EAttribute - convert string to the appropriate data type
+      const eType = feature.getEType();
       const dataType = eType as EDataType;
       // Handle both static and dynamic EDataType objects
       let eFactory: import('../EFactory').EFactory | null = null;
-      if (typeof dataType.getEPackage === 'function') {
+      if (dataType && typeof dataType.getEPackage === 'function') {
         eFactory = dataType.getEPackage()?.getEFactoryInstance() ?? null;
-      } else if (typeof (dataType as any).eGet === 'function' && typeof (dataType as any).eClass === 'function') {
+      } else if (dataType && typeof (dataType as any).eGet === 'function' && typeof (dataType as any).eClass === 'function') {
         // For dynamic objects, get package via eGet
         const dtClass = (dataType as any).eClass();
         if (dtClass) {
@@ -617,7 +639,7 @@ export class XMLHandler {
           }
         }
       }
-      if (eFactory) {
+      if (eFactory && dataType) {
         const convertedValue = eFactory.createFromString(dataType, value);
         this.helper.setValue(eObject, feature, convertedValue, position);
       } else {

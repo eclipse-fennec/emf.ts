@@ -15,6 +15,8 @@ import { EPackage } from '../EPackage';
 import { BasicEObject } from './BasicEObject';
 import { EAnnotation } from '../EAnnotation';
 import { ecoreRegistry } from '../ecore/EcoreRegistry';
+import { EList, EObjectContainmentWithInverseEListLazy, createIndexedProxy } from '../EList';
+import { EObject } from '../EObject';
 
 /**
  * Basic EClass implementation
@@ -24,7 +26,7 @@ export class BasicEClass extends BasicEObject implements EClass {
   private abstract_: boolean = false;
   private interface_: boolean = false;
   private eSuperTypes: EClass[] = [];
-  private eStructuralFeatures: EStructuralFeature[] = [];
+  private _eStructuralFeatures: EList<EStructuralFeature> | null = null;
   private eOperations: EOperation[] = [];
   private ePackage: EPackage | null = null;
   private instanceClassName: string | null = null;
@@ -92,12 +94,47 @@ export class BasicEClass extends BasicEObject implements EClass {
     return null;
   }
 
-  getEStructuralFeatures(): EStructuralFeature[] {
-    return this.eStructuralFeatures;
+  getEStructuralFeatures(): EList<EStructuralFeature> {
+    if (this._eStructuralFeatures === null) {
+      // Create containment EList with inverse setter for eContainingClass.
+      // We use a lazy feature resolution to avoid circular dependency during EcorePackage bootstrap.
+      // The feature is only needed for notifications, not for containment management.
+      const self = this;
+      const list = new EObjectContainmentWithInverseEListLazy<EStructuralFeature>(
+        this,
+        () => {
+          if (ecoreRegistry.isRegistered()) {
+            try {
+              const eClassClass = ecoreRegistry.getEClassClass();
+              // Avoid recursion by checking if we're the EClass being asked about
+              if (eClassClass !== self && eClassClass instanceof BasicEClass && eClassClass._eStructuralFeatures !== null) {
+                return eClassClass.getEStructuralFeature('eStructuralFeatures') as EReference;
+              }
+            } catch {
+              // Ignore during bootstrap
+            }
+          }
+          return null;
+        },
+        (element: EStructuralFeature, owner: EObject | null) => {
+          // Set the inverse reference: feature.eContainingClass = owner (EClass)
+          if ('setEContainingClass' in element) {
+            (element as any).setEContainingClass(owner as EClass | null);
+          }
+          // Also set featureID when adding
+          if (owner && 'setFeatureID' in element) {
+            (element as any).setFeatureID(this.featureID++);
+          }
+        }
+      );
+
+      this._eStructuralFeatures = createIndexedProxy(list);
+    }
+    return this._eStructuralFeatures!;
   }
 
   getEAllStructuralFeatures(): EStructuralFeature[] {
-    const all: EStructuralFeature[] = [...this.eStructuralFeatures];
+    const all: EStructuralFeature[] = [...this.getEStructuralFeatures()];
 
     for (const superType of this.getEAllSuperTypes()) {
       all.push(...superType.getEStructuralFeatures());
@@ -107,7 +144,7 @@ export class BasicEClass extends BasicEObject implements EClass {
   }
 
   getEAttributes(): EAttribute[] {
-    return this.eStructuralFeatures.filter(f => this.isAttribute(f)) as EAttribute[];
+    return this.getEStructuralFeatures().filter(f => this.isAttribute(f)) as EAttribute[];
   }
 
   getEAllAttributes(): EAttribute[] {
@@ -115,7 +152,7 @@ export class BasicEClass extends BasicEObject implements EClass {
   }
 
   getEReferences(): EReference[] {
-    return this.eStructuralFeatures.filter(f => this.isReference(f)) as EReference[];
+    return this.getEStructuralFeatures().filter(f => this.isReference(f)) as EReference[];
   }
 
   getEAllReferences(): EReference[] {
@@ -237,14 +274,15 @@ export class BasicEClass extends BasicEObject implements EClass {
   }
 
   /**
-   * Add feature to this class
+   * Add feature to this class.
+   * Uses the EList's add() method which automatically:
+   * - Sets the container (eSetContainer)
+   * - Sets the inverse reference (eContainingClass)
+   * - Fires notifications for adapters
+   * - Assigns a featureID
    */
   addFeature(feature: EStructuralFeature): void {
-    this.eStructuralFeatures.push(feature);
-    // Set feature ID
-    if ('setFeatureID' in feature) {
-      (feature as any).setFeatureID(this.featureID++);
-    }
+    this.getEStructuralFeatures().add(feature);
   }
 
   /**
@@ -289,7 +327,7 @@ export class BasicEClass extends BasicEObject implements EClass {
       case 'eSuperTypes':
         return this.eSuperTypes;
       case 'eStructuralFeatures':
-        return this.eStructuralFeatures;
+        return this.getEStructuralFeatures();
       case 'eOperations':
         return this.eOperations;
       case 'eAnnotations':
@@ -309,35 +347,48 @@ export class BasicEClass extends BasicEObject implements EClass {
     switch (featureName) {
       case 'name':
         this._name = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'abstract':
         this.abstract_ = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'interface':
         this.interface_ = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'eSuperTypes':
         if (Array.isArray(newValue)) {
           this.eSuperTypes = newValue;
         }
+        super.eSet(feature, newValue);
         break;
       case 'eStructuralFeatures':
+        // Clear and re-add all features through the EList
+        // EList handles its own notifications, so don't call super.eSet
+        const featureList = this.getEStructuralFeatures();
+        featureList.clear();
         if (Array.isArray(newValue)) {
-          this.eStructuralFeatures = newValue;
+          featureList.addAll(newValue);
+        } else if (newValue && typeof newValue[Symbol.iterator] === 'function') {
+          featureList.addAll([...newValue]);
         }
         break;
       case 'eOperations':
         if (Array.isArray(newValue)) {
           this.eOperations = newValue;
         }
+        super.eSet(feature, newValue);
         break;
       case 'eAnnotations':
         if (Array.isArray(newValue)) {
           this.eAnnotations = newValue;
         }
+        super.eSet(feature, newValue);
         break;
       case 'instanceClassName':
         this.instanceClassName = newValue;
+        super.eSet(feature, newValue);
         break;
       default:
         super.eSet(feature, newValue);

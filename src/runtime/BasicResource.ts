@@ -10,105 +10,65 @@ import { Resource } from '../Resource';
 import { ResourceSet } from '../ResourceSet';
 import { URI } from '../URI';
 import { EObject } from '../EObject';
-
-/**
- * Creates a resource-aware contents list that tracks resource relationships
- */
-function createResourceContentsList(resource: Resource): EObject[] {
-  const list: EObject[] = [];
-
-  return new Proxy(list, {
-    get(target, prop, receiver) {
-      if (prop === 'push') {
-        return (...items: EObject[]) => {
-          for (const item of items) {
-            if ('eSetResource' in item) {
-              (item as any).eSetResource(resource);
-            }
-            target.push(item);
-          }
-          return target.length;
-        };
-      }
-      if (prop === 'splice') {
-        return (start: number, deleteCount?: number, ...items: EObject[]) => {
-          // Handle removed items
-          const removed = target.slice(start, deleteCount !== undefined ? start + deleteCount : undefined);
-          for (const item of removed) {
-            if ('eSetResource' in item) {
-              (item as any).eSetResource(null);
-            }
-          }
-          // Handle added items
-          for (const item of items) {
-            if ('eSetResource' in item) {
-              (item as any).eSetResource(resource);
-            }
-          }
-          return target.splice(start, deleteCount ?? target.length, ...items);
-        };
-      }
-      if (prop === 'pop') {
-        return () => {
-          const item = target.pop();
-          if (item && 'eSetResource' in item) {
-            (item as any).eSetResource(null);
-          }
-          return item;
-        };
-      }
-      if (prop === 'shift') {
-        return () => {
-          const item = target.shift();
-          if (item && 'eSetResource' in item) {
-            (item as any).eSetResource(null);
-          }
-          return item;
-        };
-      }
-      if (prop === 'unshift') {
-        return (...items: EObject[]) => {
-          for (const item of items) {
-            if ('eSetResource' in item) {
-              (item as any).eSetResource(resource);
-            }
-          }
-          return target.unshift(...items);
-        };
-      }
-      return Reflect.get(target, prop, receiver);
-    },
-    set(target, prop, value, receiver) {
-      const index = Number(prop);
-      if (!isNaN(index)) {
-        const oldItem = target[index];
-        if (oldItem && 'eSetResource' in oldItem) {
-          (oldItem as any).eSetResource(null);
-        }
-        if (value && 'eSetResource' in value) {
-          (value as any).eSetResource(resource);
-        }
-      }
-      return Reflect.set(target, prop, value, receiver);
-    }
-  });
-}
+import { EList, createResourceContentsEList } from '../EList';
+import { Notifier } from '../notify/Notifier';
+import { Adapter } from '../notify/Adapter';
+import { Notification } from '../notify/Notification';
 
 /**
  * Basic Resource implementation
+ * Implements Notifier interface to support EContentAdapter and change notifications.
  */
-export class BasicResource implements Resource {
+export class BasicResource implements Resource, Notifier {
   private uri: URI | null;
   private resourceSet: ResourceSet | null = null;
-  private contents: EObject[];
+  private contents: EList<EObject>;
   private loaded: boolean = false;
   private modified: boolean = false;
   private errors: Array<{ message: string; location?: string; line?: number; column?: number }> = [];
   private warnings: Array<{ message: string; location?: string; line?: number; column?: number }> = [];
 
+  // Notifier interface fields
+  private _eAdapters: Adapter[] = [];
+  private _eDeliver: boolean = true;
+
   constructor(uri?: URI) {
     this.uri = uri || null;
-    this.contents = createResourceContentsList(this);
+    this.contents = createResourceContentsEList(this);
+  }
+
+  // ===== Notifier interface implementation =====
+
+  /**
+   * Returns the list of adapters associated with this resource.
+   */
+  eAdapters(): Adapter[] {
+    return this._eAdapters;
+  }
+
+  /**
+   * Returns whether this resource will deliver notifications to adapters.
+   */
+  eDeliver(): boolean {
+    return this._eDeliver;
+  }
+
+  /**
+   * Sets whether this resource will deliver notifications to adapters.
+   */
+  eSetDeliver(deliver: boolean): void {
+    this._eDeliver = deliver;
+  }
+
+  /**
+   * Notifies all adapters of a change.
+   */
+  eNotify(notification: Notification): void {
+    if (this._eDeliver && this._eAdapters.length > 0) {
+      for (const adapter of this._eAdapters) {
+        adapter.notifyChanged(notification);
+      }
+    }
   }
 
   getResourceSet(): ResourceSet | null {
@@ -127,7 +87,7 @@ export class BasicResource implements Resource {
     this.uri = uri;
   }
 
-  getContents(): EObject[] {
+  getContents(): EList<EObject> {
     return this.contents;
   }
 
@@ -162,7 +122,7 @@ export class BasicResource implements Resource {
 
       if (parts.length === 0) {
         // Just '/' or '//' - return root
-        return this.contents[0] || null;
+        return this.contents.size() > 0 ? this.contents.get(0) : null;
       }
 
       let current: EObject | null = null;
@@ -171,7 +131,7 @@ export class BasicResource implements Resource {
       if (isDoubleSlash) {
         // For '//Name' fragments: start with root object and search in its contents
         // This is how EMF handles named element navigation (like //SortOrder in an EPackage)
-        current = this.contents[0] || null;
+        current = this.contents.size() > 0 ? this.contents.get(0) : null;
         if (!current) {
           return null;
         }
@@ -191,13 +151,13 @@ export class BasicResource implements Resource {
         if (current === null) {
           // Root level - try index first, then name
           if (!isNaN(index)) {
-            current = this.contents[index] || null;
+            current = index < this.contents.size() ? this.contents.get(index) : null;
           } else {
             // Try to find by name in root contents, or search in first root's eContents
-            current = this.findByName(this.contents, part);
-            if (!current && this.contents.length > 0) {
+            current = this.findByName(this.contents.toArray(), part);
+            if (!current && this.contents.size() > 0) {
               // Fallback: search in root object's eContents (for named elements like EClassifiers)
-              current = this.findByNameInContents(this.contents[0], part);
+              current = this.findByNameInContents(this.contents.get(0), part);
             }
           }
         } else {
@@ -372,7 +332,7 @@ export class BasicResource implements Resource {
   }
 
   unload(): void {
-    this.contents = [];
+    this.contents.clear();
     this.loaded = false;
     this.modified = false;
     this.errors = [];
@@ -426,7 +386,7 @@ export class BasicResource implements Resource {
   private serialize(): any {
     return {
       uri: this.uri?.toString(),
-      contents: this.contents.map(obj => this.serializeObject(obj))
+      contents: this.contents.toArray().map(obj => this.serializeObject(obj))
     };
   }
 

@@ -17,6 +17,8 @@ import { Resource } from '../Resource';
 import { URI } from '../URI';
 import { XMLHelper, XMLHelperImpl } from './XMLHelper';
 import { XSI_URI, XMI_URI } from './XMLHandler';
+import { isEList } from '../EList';
+import { InternalEObject, isInternalEObject } from '../InternalEObject';
 
 /**
  * XMLSave - Serializes EObjects to XML/XMI format
@@ -177,32 +179,52 @@ export class XMLSave {
       if (this.isAttribute(feature)) {
         // Write EAttribute as attribute
         const attr = feature as EAttribute;
-        const value = obj.eGet(attr);
+        let value = obj.eGet(attr);
 
         if (value !== null && value !== undefined) {
-          // Get default value safely - may return null if type not properly set
-          let defaultValue: any = null;
-          try {
-            defaultValue = attr.getDefaultValue();
-          } catch {
-            // Ignore - use null as default
-          }
-          if (value !== defaultValue) {
-            const stringValue = this.convertToString(attr, value);
-            this.output.push(` ${attr.getName()}="${this.escapeXml(stringValue)}"`);
+          // Resolve proxy if necessary
+          value = this.resolveValue(value, obj);
+
+          if (value !== null && value !== undefined) {
+            // Get default value safely - may return null if type not properly set
+            let defaultValue: any = null;
+            try {
+              defaultValue = attr.getDefaultValue();
+            } catch {
+              // Ignore - use null as default
+            }
+            if (value !== defaultValue) {
+              const stringValue = this.convertToString(attr, value);
+              this.output.push(` ${attr.getName()}="${this.escapeXml(stringValue)}"`);
+            }
           }
         }
       } else if ('isContainment' in feature) {
         // Write non-containment EReference as attribute with href
         const ref = feature as EReference;
         if (!ref.isContainment()) {
-          const value = obj.eGet(ref);
+          let value = obj.eGet(ref);
           if (value !== null && value !== undefined) {
             if (!feature.isMany()) {
-              // Single-valued reference
-              const href = this.getHref(value as EObject);
-              if (href) {
-                this.output.push(` ${ref.getName()}="${this.escapeXml(href)}"`);
+              // Single-valued reference - resolve proxy first
+              value = this.resolveValue(value, obj);
+
+              if (value !== null && value !== undefined) {
+                // If value is now a string (unresolved proxy URI), use it directly
+                if (typeof value === 'string') {
+                  this.output.push(` ${ref.getName()}="${this.escapeXml(value)}"`);
+                } else if (typeof value === 'boolean') {
+                  // Handle primitive boolean (shouldn't be a reference, but handle gracefully)
+                  this.output.push(` ${ref.getName()}="${value ? 'true' : 'false'}"`);
+                } else if (typeof value === 'number') {
+                  // Handle primitive number (shouldn't be a reference, but handle gracefully)
+                  this.output.push(` ${ref.getName()}="${String(value)}"`);
+                } else {
+                  const href = this.getHref(value as EObject);
+                  if (href) {
+                    this.output.push(` ${ref.getName()}="${this.escapeXml(href)}"`);
+                  }
+                }
               }
             }
             // Multi-valued non-containment refs are written as elements with href
@@ -216,6 +238,12 @@ export class XMLSave {
    * Get href for cross-reference
    */
   protected getHref(obj: EObject): string | null {
+    // Handle proxies - return their URI directly
+    if (isInternalEObject(obj) && obj.eIsProxy()) {
+      const proxyURI = obj.eProxyURI();
+      return proxyURI?.toString() || null;
+    }
+
     const resource = obj.eResource?.();
 
     // Try to get URI fragment from resource
@@ -281,20 +309,24 @@ export class XMLSave {
    */
   protected hasElementContent(obj: EObject): boolean {
     const eClass = obj.eClass();
+    const features = eClass.getEAllStructuralFeatures();
+    console.log('[XMLSave] hasElementContent for', eClass.getName(), '- features count:', features.length);
 
-    for (const feature of eClass.getEAllStructuralFeatures()) {
+    for (const feature of features) {
+      const featureName = feature.getName?.() || 'unknown';
       if ('isContainment' in feature) {
         const ref = feature as EReference;
         if (feature.isTransient()) continue;
 
         const value = obj.eGet(ref);
+        console.log('[XMLSave]   feature:', featureName, 'isContainment:', ref.isContainment(), 'value:', value, 'length:', Array.isArray(value) ? value.length : 'N/A');
         if (value === null || value === undefined) continue;
 
         if (ref.isContainment()) {
           // Containment references
-          if (Array.isArray(value) && value.length > 0) return true;
-          if (!Array.isArray(value)) return true;
-        } else if (feature.isMany() && Array.isArray(value) && value.length > 0) {
+          if ((Array.isArray(value) || isEList(value)) && value.length > 0) return true;
+          if (!Array.isArray(value) && !isEList(value)) return true;
+        } else if (feature.isMany() && (Array.isArray(value) || isEList(value)) && value.length > 0) {
           // Multi-valued non-containment references
           return true;
         }
@@ -320,14 +352,14 @@ export class XMLSave {
 
         if (ref.isContainment()) {
           // Containment: write as nested elements
-          if (Array.isArray(value)) {
+          if (Array.isArray(value) || isEList(value)) {
             for (const child of value) {
               this.writeElement(ref, child);
             }
           } else {
             this.writeElement(ref, value as EObject);
           }
-        } else if (feature.isMany() && Array.isArray(value) && value.length > 0) {
+        } else if (feature.isMany() && (Array.isArray(value) || isEList(value)) && value.length > 0) {
           // Multi-valued non-containment: write as elements with href
           for (const refObj of value) {
             const href = this.getHref(refObj as EObject);
@@ -382,10 +414,123 @@ export class XMLSave {
   }
 
   /**
+   * Resolve a value if it's a proxy.
+   * Returns the resolved value or the original value if not a proxy or cannot be resolved.
+   */
+  protected resolveValue(value: any, owner: EObject): any {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    // Check if value is a proxy
+    if (isInternalEObject(value) && value.eIsProxy()) {
+      // Try to resolve via the owner's resource
+      if ('eResolveProxy' in owner && typeof (owner as any).eResolveProxy === 'function') {
+        const resolved = (owner as any).eResolveProxy(value);
+        if (resolved !== value && !(isInternalEObject(resolved) && resolved.eIsProxy())) {
+          return resolved;
+        }
+      }
+
+      // If still a proxy, try to resolve via the resource set
+      const proxyURI = value.eProxyURI();
+      if (proxyURI && this.resource) {
+        const resourceSet = this.resource.getResourceSet();
+        if (resourceSet) {
+          const uriStr = proxyURI.toString();
+          const hashIndex = uriStr.indexOf('#');
+
+          if (hashIndex >= 0) {
+            const fragment = uriStr.substring(hashIndex + 1);
+            let targetResource = this.resource;
+
+            if (hashIndex > 0) {
+              const resourceURI = URI.createURI(uriStr.substring(0, hashIndex));
+              targetResource = resourceSet.getResource(resourceURI, true) || this.resource;
+            }
+
+            if (targetResource) {
+              const resolved = targetResource.getEObject(fragment);
+              if (resolved) {
+                return resolved;
+              }
+            }
+          }
+        }
+      }
+
+      // Cannot resolve - return the proxy URI as a string for serialization
+      // This way unresolved proxies are serialized as references, not "EProxy(...)"
+      return proxyURI?.toString() || null;
+    }
+
+    return value;
+  }
+
+  /**
    * Convert value to string
    */
   protected convertToString(attr: EAttribute, value: any): string {
     if (value === null || value === undefined) return '';
+
+    // If value is already a string (e.g., from unresolved proxy URI), return it
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    // Handle boolean explicitly
+    if (typeof value === 'boolean') {
+      return value ? 'true' : 'false';
+    }
+
+    // Handle numbers
+    if (typeof value === 'number') {
+      return String(value);
+    }
+
+    // Handle arrays (multi-valued attributes) - serialize as space-separated values
+    if (Array.isArray(value) || isEList(value)) {
+      const items: string[] = [];
+      for (const item of value) {
+        if (item !== null && item !== undefined) {
+          items.push(this.convertSingleValueToString(attr, item));
+        }
+      }
+      return items.join(' ');
+    }
+
+    // Handle EObject values (shouldn't happen for attributes, but just in case)
+    if (value && typeof value === 'object' && 'eClass' in value) {
+      // This is an EObject - get its name or ID
+      if ('getName' in value && typeof value.getName === 'function') {
+        return value.getName() || '';
+      }
+      // Fallback - this shouldn't happen for proper attributes
+      return '';
+    }
+
+    const eType = attr.getEType();
+    if (eType && 'getEPackage' in eType) {
+      const pkg = (eType as EDataType).getEPackage();
+      if (pkg) {
+        const factory = pkg.getEFactoryInstance();
+        if (factory) {
+          return factory.convertToString(eType as EDataType, value);
+        }
+      }
+    }
+
+    return String(value);
+  }
+
+  /**
+   * Convert a single value to string (helper for arrays)
+   */
+  protected convertSingleValueToString(attr: EAttribute, value: any): string {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    if (typeof value === 'number') return String(value);
 
     const eType = attr.getEType();
     if (eType && 'getEPackage' in eType) {

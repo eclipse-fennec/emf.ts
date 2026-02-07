@@ -315,15 +315,21 @@ export class XMLHelperImpl implements XMLHelper {
         this.featuresToKinds.set(feature, DATATYPE_SINGLE);
       }
     } else {
-      // It's a reference
+      // It's a reference type - but check if feature is actually an EReference
       if (feature.isMany()) {
-        const reference = feature as EReference;
-        const opposite = reference.getEOpposite();
+        // Check if feature has getEOpposite method (i.e., is actually an EReference)
+        if ('getEOpposite' in feature && typeof (feature as any).getEOpposite === 'function') {
+          const reference = feature as EReference;
+          const opposite = reference.getEOpposite();
 
-        if (!opposite || opposite.isTransient() || !opposite.isMany()) {
-          this.featuresToKinds.set(feature, IS_MANY_ADD);
+          if (!opposite || opposite.isTransient() || !opposite.isMany()) {
+            this.featuresToKinds.set(feature, IS_MANY_ADD);
+          } else {
+            this.featuresToKinds.set(feature, IS_MANY_MOVE);
+          }
         } else {
-          this.featuresToKinds.set(feature, IS_MANY_MOVE);
+          // Feature is many but not a proper EReference
+          this.featuresToKinds.set(feature, IS_MANY_ADD);
         }
       } else {
         this.featuresToKinds.set(feature, OTHER);

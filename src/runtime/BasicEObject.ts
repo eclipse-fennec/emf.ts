@@ -17,6 +17,7 @@ import { InternalEObject, isInternalEObject } from '../InternalEObject';
 import { Adapter, isAdapterInternal } from '../notify/Adapter';
 import { Notification, NotificationImpl, NotificationType } from '../notify/Notification';
 import { Notifier } from '../notify/Notifier';
+import { EList, BasicEList, EObjectContainmentEList, EObjectEList, isEList, createContainmentEList, createEObjectEList, createBasicEList } from '../EList';
 
 /**
  * Minimal EObject implementation
@@ -95,8 +96,10 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
     for (const feature of features) {
       const value = this.eGet(feature);
       if (value) {
-        if (Array.isArray(value)) {
-          contents.push(...value);
+        if (Array.isArray(value) || isEList(value)) {
+          for (const item of value) {
+            contents.push(item);
+          }
         } else {
           contents.push(value);
         }
@@ -261,8 +264,10 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
    * Notifies a change to a feature of this notifier as described by the notification.
    */
   eNotify(notification: Notification): void {
+    console.log('[BasicEObject] eNotify called, deliver:', this._eDeliver, 'adapters:', this._eAdapters.length);
     if (this._eDeliver && this._eAdapters.length > 0) {
       for (const adapter of this._eAdapters) {
+        console.log('[BasicEObject] Calling notifyChanged on adapter:', adapter.constructor?.name);
         adapter.notifyChanged(notification);
       }
     }
@@ -322,8 +327,10 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
       if (!ref.isContainment()) {
         const value = this.eGet(ref);
         if (value) {
-          if (Array.isArray(value)) {
-            refs.push(...value);
+          if (Array.isArray(value) || isEList(value)) {
+            for (const item of value) {
+              refs.push(item);
+            }
           } else {
             refs.push(value);
           }
@@ -376,6 +383,7 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
     }
 
     // Send notification
+    console.log('[BasicEObject] eSet - checking notification: _eDeliver=', this._eDeliver, '_eAdapters.length=', this._eAdapters.length);
     if (this._eDeliver && this._eAdapters.length > 0) {
       const notification = new NotificationImpl(
         this,
@@ -385,6 +393,8 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
         newValue
       );
       this.eNotify(notification);
+    } else {
+      console.log('[BasicEObject] eSet - NOT sending notification');
     }
   }
 
@@ -474,153 +484,6 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
 }
 
 /**
- * Creates a containment-aware list that tracks container relationships
- */
-function createContainmentList(owner: EObject, feature: EReference): EObject[] {
-  const list: EObject[] = [];
-
-  return new Proxy(list, {
-    get(target, prop, receiver) {
-      if (prop === 'push') {
-        return (...items: EObject[]) => {
-          for (const item of items) {
-            // Remove from old container first
-            const oldContainer = item.eContainer();
-            if (oldContainer && oldContainer !== owner) {
-              const oldFeature = item.eContainmentFeature();
-              if (oldFeature && oldFeature.isMany()) {
-                const oldList = oldContainer.eGet(oldFeature) as EObject[];
-                const idx = oldList.indexOf(item);
-                if (idx >= 0) {
-                  oldList.splice(idx, 1);
-                }
-              }
-            }
-            // Set new container
-            if ('eSetContainer' in item) {
-              (item as any).eSetContainer(owner, feature);
-            }
-            target.push(item);
-          }
-          return target.length;
-        };
-      }
-      if (prop === 'splice') {
-        return (start: number, deleteCount?: number, ...items: EObject[]) => {
-          // Handle removed items
-          const removed = target.slice(start, deleteCount !== undefined ? start + deleteCount : undefined);
-          for (const item of removed) {
-            if ('eSetContainer' in item) {
-              (item as any).eSetContainer(null, null);
-            }
-          }
-          // Handle added items
-          for (const item of items) {
-            if ('eSetContainer' in item) {
-              (item as any).eSetContainer(owner, feature);
-            }
-          }
-          return target.splice(start, deleteCount ?? target.length, ...items);
-        };
-      }
-      if (prop === 'pop') {
-        return () => {
-          const item = target.pop();
-          if (item && 'eSetContainer' in item) {
-            (item as any).eSetContainer(null, null);
-          }
-          return item;
-        };
-      }
-      if (prop === 'shift') {
-        return () => {
-          const item = target.shift();
-          if (item && 'eSetContainer' in item) {
-            (item as any).eSetContainer(null, null);
-          }
-          return item;
-        };
-      }
-      if (prop === 'unshift') {
-        return (...items: EObject[]) => {
-          for (const item of items) {
-            if ('eSetContainer' in item) {
-              (item as any).eSetContainer(owner, feature);
-            }
-          }
-          return target.unshift(...items);
-        };
-      }
-      return Reflect.get(target, prop, receiver);
-    },
-    set(target, prop, value, receiver) {
-      // Handle index assignment like list[0] = obj
-      const index = Number(prop);
-      if (!isNaN(index)) {
-        const oldItem = target[index];
-        if (oldItem && 'eSetContainer' in oldItem) {
-          (oldItem as any).eSetContainer(null, null);
-        }
-        if (value && 'eSetContainer' in value) {
-          (value as any).eSetContainer(owner, feature);
-        }
-      }
-      return Reflect.set(target, prop, value, receiver);
-    }
-  });
-}
-
-/**
- * Creates a proxy-resolving list that automatically resolves proxies when accessed
- */
-function createProxyResolvingList(owner: BasicEObject, feature: EReference): EObject[] {
-  const list: EObject[] = [];
-
-  return new Proxy(list, {
-    get(target, prop, receiver) {
-      // Skip non-string props (like Symbol.iterator)
-      if (typeof prop !== 'string') {
-        return Reflect.get(target, prop, receiver);
-      }
-
-      // For numeric indices, resolve proxies on access
-      const index = parseInt(prop, 10);
-      if (!isNaN(index) && index >= 0 && index < target.length) {
-        const item = target[index];
-        if (item && isInternalEObject(item) && item.eIsProxy()) {
-          const resolved = owner.eResolveProxy(item);
-          if (resolved !== item) {
-            // Replace proxy with resolved object
-            target[index] = resolved;
-            return resolved;
-          }
-        }
-        return item;
-      }
-
-      // Handle array methods that might access items
-      if (prop === 'forEach' || prop === 'map' || prop === 'filter' || prop === 'find' || prop === 'some' || prop === 'every') {
-        return (callback: (value: EObject, index: number, array: EObject[]) => any, thisArg?: any) => {
-          // Resolve all proxies first
-          for (let i = 0; i < target.length; i++) {
-            const item = target[i];
-            if (item && isInternalEObject(item) && item.eIsProxy()) {
-              const resolved = owner.eResolveProxy(item);
-              if (resolved !== item) {
-                target[i] = resolved;
-              }
-            }
-          }
-          return (target as any)[prop](callback, thisArg);
-        };
-      }
-
-      return Reflect.get(target, prop, receiver);
-    }
-  });
-}
-
-/**
  * Dynamic EObject Implementation
  * Used for objects without generated code
  */
@@ -634,7 +497,8 @@ export class DynamicEObject extends BasicEObject {
   }
 
   /**
-   * Override eGet to handle dynamic features and proxy resolution
+   * Override eGet to handle dynamic features and proxy resolution.
+   * Returns EList for multi-valued features.
    */
   override eGet(feature: EStructuralFeature): any {
     const featureName = feature.getName() || '';
@@ -655,18 +519,23 @@ export class DynamicEObject extends BasicEObject {
       return value;
     }
 
-    // For many-valued features, create and store the list
+    // For many-valued features, create and store an EList with index access support
     if (feature.isMany()) {
-      let list: any[];
+      let list: any;
 
-      // Check if this is a containment reference
-      if ('isContainment' in feature && (feature as EReference).isContainment()) {
-        list = createContainmentList(this, feature as EReference);
-      } else if ('isContainment' in feature) {
-        // Non-containment reference - use proxy-resolving list
-        list = createProxyResolvingList(this, feature as EReference);
+      // Check if this is a reference
+      if ('isContainment' in feature) {
+        const ref = feature as EReference;
+        if (ref.isContainment()) {
+          // Containment reference - manages container relationships
+          list = createContainmentEList(this, ref);
+        } else {
+          // Non-containment reference - with proxy resolution
+          list = createEObjectEList(this, ref);
+        }
       } else {
-        list = [];
+        // Simple attribute list
+        list = createBasicEList<any>(this, feature);
       }
 
       this.eSettings.set(featureName, list);

@@ -203,9 +203,11 @@ export abstract class EContentAdapter extends AdapterImpl implements AdapterInte
    * Handles installation of the adapter on a Resource.
    */
   protected setTargetResource(target: Resource): void {
+    console.log('[EContentAdapter] setTargetResource called, contents:', target.getContents().length);
     this.basicSetTarget(target as unknown as Notifier);
     const contents = target.getContents();
     for (const child of contents) {
+      console.log('[EContentAdapter] Adding adapter to child:', (child as any).getName?.() || child);
       this.addAdapter(child as unknown as Notifier);
     }
   }
@@ -288,11 +290,15 @@ export abstract class EContentAdapter extends AdapterImpl implements AdapterInte
    * Adds this adapter to the notifier if not already present.
    */
   protected addAdapter(notifier: Notifier): void {
+    console.log('[EContentAdapter] addAdapter called, notifier has eAdapters:', typeof notifier.eAdapters === 'function');
     const eAdapters = notifier.eAdapters();
+    console.log('[EContentAdapter] Current adapters count:', eAdapters.length, 'already has this:', eAdapters.includes(this));
     if (!eAdapters.includes(this)) {
       eAdapters.push(this);
+      console.log('[EContentAdapter] Adapter added, new count:', eAdapters.length);
       // Call setTarget to trigger recursive addition for EObjects
       if (this.isEObject(notifier)) {
+        console.log('[EContentAdapter] Notifier is EObject, calling setTargetEObject');
         this.setTargetEObject(notifier as unknown as EObject);
       }
     }

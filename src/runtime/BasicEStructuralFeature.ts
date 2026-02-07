@@ -191,38 +191,49 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
     switch (featureName) {
       case 'name':
         this.name = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'changeable':
         this.changeable = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'volatile':
         this.volatile = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'transient':
         this.transient = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'defaultValueLiteral':
         this.defaultValueLiteral = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'unsettable':
         this.unsettable = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'derived':
         this.derived = newValue === true || newValue === 'true';
+        super.eSet(feature, newValue);
         break;
       case 'eType':
         this.eType = newValue;
+        super.eSet(feature, newValue);
         break;
       case 'lowerBound':
         this.lowerBound = typeof newValue === 'number' ? newValue : parseInt(newValue, 10);
+        super.eSet(feature, newValue);
         break;
       case 'upperBound':
         this.upperBound = typeof newValue === 'number' ? newValue : parseInt(newValue, 10);
+        super.eSet(feature, newValue);
         break;
       case 'eAnnotations':
         if (Array.isArray(newValue)) {
           this.eAnnotations = newValue;
         }
+        super.eSet(feature, newValue);
         break;
       default:
         super.eSet(feature, newValue);

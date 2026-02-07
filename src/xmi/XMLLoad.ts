@@ -99,6 +99,25 @@ export class XMLLoad {
 
     // End document
     handler.endDocument();
+
+    // Transfer errors from handler to resource
+    const handlerErrors = handler.getErrors();
+    if (handlerErrors.length > 0 && resource.getErrors) {
+      const resourceErrors = resource.getErrors();
+      for (const err of handlerErrors) {
+        // Parse line/column from error message if available
+        const match = err.message.match(/\[Line\s*(\d+),?\s*Col\s*(\d+)\]\s*(.*)/i);
+        if (match) {
+          resourceErrors.push({
+            message: match[3] || err.message,
+            line: parseInt(match[1], 10),
+            column: parseInt(match[2], 10)
+          });
+        } else {
+          resourceErrors.push({ message: err.message });
+        }
+      }
+    }
   }
 
   /**

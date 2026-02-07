@@ -11,6 +11,7 @@ import { EAttribute } from './EAttribute';
 import { EReference } from './EReference';
 import { EOperation } from './EOperation';
 import { EStructuralFeature } from './EStructuralFeature';
+import { EList } from './EList';
 
 /**
  * A representation of the model object 'EClass'.
@@ -54,8 +55,12 @@ export interface EClass extends EClassifier {
 
   /**
    * Returns the list of structural features (attributes and references) of this class only.
+   * The returned EList is a containment list that automatically:
+   * - Sets the container when features are added
+   * - Sets the inverse reference (eContainingClass)
+   * - Fires notifications for adapters (including EContentAdapter)
    */
-  getEStructuralFeatures(): EStructuralFeature[];
+  getEStructuralFeatures(): EList<EStructuralFeature>;
 
   /**
    * Returns the list of all structural features (including inherited).
