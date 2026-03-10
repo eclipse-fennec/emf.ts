@@ -307,7 +307,11 @@ export class XMLHelperImpl implements XMLHelper {
   protected computeFeatureKind(feature: EStructuralFeature): void {
     const eClassifier = feature.getEType();
 
-    if (eClassifier && !('getESuperTypes' in eClassifier)) {
+    // An EReference always points to an EClass, never a data type.
+    // Check if the feature is an EReference to avoid misclassifying when eType is an unresolved proxy.
+    const isReference = 'isContainment' in feature && typeof (feature as any).isContainment === 'function';
+
+    if (!isReference && (!eClassifier || !('getESuperTypes' in eClassifier))) {
       // It's a data type
       if (feature.isMany()) {
         this.featuresToKinds.set(feature, DATATYPE_IS_MANY);
@@ -322,7 +326,7 @@ export class XMLHelperImpl implements XMLHelper {
           const reference = feature as EReference;
           const opposite = reference.getEOpposite();
 
-          if (!opposite || opposite.isTransient() || !opposite.isMany()) {
+          if (!opposite || typeof opposite.isTransient !== 'function' || opposite.isTransient() || !opposite.isMany()) {
             this.featuresToKinds.set(feature, IS_MANY_ADD);
           } else {
             this.featuresToKinds.set(feature, IS_MANY_MOVE);

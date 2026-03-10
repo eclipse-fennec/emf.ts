@@ -88,7 +88,6 @@ export class PluginRegistry {
 
     this.extensionPoints.set(point.id, point);
     this.extensions.set(point.id, []);
-    console.log(`[PluginRegistry] Defined extension point: ${point.id}`);
   }
 
   /**
@@ -100,7 +99,6 @@ export class PluginRegistry {
     }
 
     this.plugins.set(plugin.id, plugin);
-    console.log(`[PluginRegistry] Registered plugin: ${plugin.id} v${plugin.version}`);
 
     // Process extensions
     if (plugin.extensions) {
@@ -144,7 +142,6 @@ export class PluginRegistry {
       listeners.forEach(listener => listener.onExtensionAdded(extension));
     }
 
-    console.log(`[PluginRegistry] Added extension to ${extension.point} from ${extension.plugin}`);
   }
 
   /**
@@ -164,7 +161,6 @@ export class PluginRegistry {
         listeners.forEach(listener => listener.onExtensionRemoved(removed));
       }
 
-      console.log(`[PluginRegistry] Removed extension from ${point} by ${plugin}`);
     }
   }
 

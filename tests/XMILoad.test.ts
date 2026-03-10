@@ -141,6 +141,7 @@ describe('XMI Loading with Nested Elements', () => {
   <eClassifiers xsi:type="ecore:EClass" name="Person">
     <eAnnotations source="http://example.com/annotation">
       <details key="name" value="PersonClass"/>
+      <details key="description" value="Represents a person"/>
     </eAnnotations>
   </eClassifiers>
 </ecore:EPackage>`;
@@ -161,6 +162,25 @@ describe('XMI Loading with Nested Elements', () => {
     const pkg = resource.getContents()[0] as any;
     const personClass = pkg.getEClassifiers()[0] as any;
     expect(personClass.getEAnnotations().length).toBe(1);
+
+    const annotation = personClass.getEAnnotations()[0];
+    const details = annotation.getDetails();
+
+    // Verify EMap list semantics
+    expect(details.size()).toBe(2);
+
+    // Verify map access
+    expect(details.getByKey('name')).toBe('PersonClass');
+    expect(details.getByKey('description')).toBe('Represents a person');
+
+    // Verify toMap()
+    const jsMap = details.toMap();
+    expect(jsMap.get('name')).toBe('PersonClass');
+    expect(jsMap.get('description')).toBe('Represents a person');
+
+    // Verify entry containment
+    const entry0 = details.get(0);
+    expect(entry0.eContainer()).toBe(annotation);
   });
 
   it('should load ecore package with EEnum and literals', () => {
@@ -434,5 +454,59 @@ describe('XMI Loading with Nested Elements', () => {
     expect(superTypes.length).toBe(2);
     expect(superTypes[0].getName()).toBe('ClassB');
     expect(superTypes[1].getName()).toBe('ClassC');
+  });
+
+  it('should resolve intra-package cross-references during ecore loading (fixes #6)', () => {
+    // This tests the fix for GitHub Issue #6:
+    // When loading .ecore files, intra-package cross-references using the nsURI
+    // (e.g. eType="http://company.com/c1#//Employee") should be resolved against
+    // the current resource's root objects, not just the package registry.
+    const ecoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="Company" nsURI="http://company.com/c1" nsPrefix="company">
+  <eClassifiers xsi:type="ecore:EClass" name="Division">
+    <eStructuralFeatures xsi:type="ecore:EReference" upperBound="-1"
+        eType="ecore:EClass http://company.com/c1#//Employee" name="employees"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="Employee">
+    <eStructuralFeatures xsi:type="ecore:EAttribute"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString" name="name"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+    const uri = URI.createURI('test://company.ecore');
+    const resource = new XMIResource(uri);
+    resource.setResourceSet(resourceSet);
+
+    resource.loadFromString(ecoreXML);
+
+    const errors = resource.getErrors();
+    if (errors.length > 0) {
+      console.log('Errors:', errors.map(e => e.message));
+    }
+
+    expect(errors.length).toBe(0);
+
+    const pkg = resource.getContents()[0] as any;
+    expect(pkg.getName()).toBe('Company');
+    expect(pkg.getEClassifiers().length).toBe(2);
+
+    const divisionClass = pkg.getEClassifiers()[0] as any;
+    expect(divisionClass.getName()).toBe('Division');
+
+    const employeeClass = pkg.getEClassifiers()[1] as any;
+    expect(employeeClass.getName()).toBe('Employee');
+
+    // The key assertion: the eType of the 'employees' reference should be
+    // resolved to the Employee EClass, NOT an unresolved proxy
+    const employeesRef = divisionClass.getEStructuralFeatures()[0] as any;
+    expect(employeesRef.getName()).toBe('employees');
+
+    const eType = employeesRef.getEType();
+    expect(eType).not.toBeNull();
+    expect(eType.getName()).toBe('Employee');
+
+    // Verify it's the actual class, not a proxy
+    expect(typeof eType.eIsProxy !== 'function' || !eType.eIsProxy()).toBe(true);
   });
 });

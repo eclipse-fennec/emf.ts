@@ -20,6 +20,9 @@ import { BasicEAttribute } from '../runtime/BasicEAttribute';
 import { BasicEReference } from '../runtime/BasicEReference';
 import { BasicEDataType } from '../runtime/BasicEDataType';
 import { BasicEFactory } from '../runtime/BasicEFactory';
+import { BasicEAnnotation } from '../runtime/BasicEAnnotation';
+import { BasicEEnum } from '../runtime/BasicEEnum';
+import { BasicEEnumLiteral } from '../runtime/BasicEEnumLiteral';
 import { ecoreRegistry } from './EcoreRegistry';
 
 /**
@@ -618,6 +621,7 @@ export class EcorePackageImpl extends BasicEPackage {
   getEOperationClass(): EClass { return this._eOperationClass; }
   getEParameterClass(): EClass { return this._eParameterClass; }
   getEAnnotationClass(): EClass { return this._eAnnotationClass; }
+  getEStringToStringMapEntryClass(): EClass { return this._eStringToStringMapEntryClass; }
 
   // Getters for EDataTypes
   getEBoolean(): EDataType { return this._eBooleanDataType; }
@@ -627,6 +631,12 @@ export class EcorePackageImpl extends BasicEPackage {
   getEFloat(): EDataType { return this._eFloatDataType; }
   getELong(): EDataType { return this._eLongDataType; }
   getEDate(): EDataType { return this._eDateDataType; }
+  getEShort(): EDataType { return this._eShortDataType; }
+  getEByte(): EDataType { return this._eByteDataType; }
+  getEChar(): EDataType { return this._eCharDataType; }
+  getEBigInteger(): EDataType { return this._eBigIntegerDataType; }
+  getEBigDecimal(): EDataType { return this._eBigDecimalDataType; }
+  getEJavaObject(): EDataType { return this._eJavaObjectDataType; }
 }
 
 /**
@@ -656,9 +666,14 @@ export class EcoreFactory extends BasicEFactory {
         return new BasicEReference();
       case 'EDataType':
         return new BasicEDataType();
+      case 'EEnum':
+        return new BasicEEnum();
+      case 'EEnumLiteral':
+        return new BasicEEnumLiteral();
+      case 'EAnnotation':
+        return new BasicEAnnotation();
       case 'EPackage':
         return new BasicEPackage();
-      // Add more cases as needed
       default:
         return super.create(eClass);
     }

@@ -578,7 +578,35 @@ export class XMLHandler {
       eObject = this.createObjectByType('', xsiType, false);
     } else {
       // Use feature type
-      const eType = feature.getEType();
+      let eType = feature.getEType();
+
+      // Resolve proxy eType if needed (e.g. when loading from workspace where types may be proxies)
+      if (eType && !('getESuperTypes' in eType) && typeof (eType as any).eIsProxy === 'function' && (eType as any).eIsProxy()) {
+        const proxyURI = (eType as any).eProxyURI();
+        if (proxyURI) {
+          const uriStr = proxyURI.toString();
+          const hashIndex = uriStr.indexOf('#');
+          if (hashIndex > 0) {
+            const nsURI = uriStr.substring(0, hashIndex);
+            const fragment = uriStr.substring(hashIndex + 1);
+            // Try to resolve through package registry
+            const pkg = this.packageRegistry.getEPackage(nsURI);
+            if (pkg) {
+              // Fragment like //Person -> extract class name
+              const className = fragment.replace(/^\/+/, '');
+              const resolved = pkg.getEClassifier(className);
+              if (resolved) {
+                eType = resolved;
+                // Update the feature's eType to avoid resolving again
+                if (typeof (feature as any).setEType === 'function') {
+                  (feature as any).setEType(resolved);
+                }
+              }
+            }
+          }
+        }
+      }
+
       if (eType && 'getESuperTypes' in eType) {
         const eClass = eType as EClass;
         if (!eClass.isAbstract()) {
@@ -789,6 +817,19 @@ export class XMLHandler {
       const ePackage = this.packageRegistry.getEPackage(baseURI);
       if (ePackage) {
         return this.resolveFragmentInPackage(ePackage, fragment);
+      }
+
+      // SECOND: check current resource's root objects (for intra-package references
+      // where the package is still being loaded and not yet registered)
+      const contents = this.resource.getContents();
+      for (let i = 0; i < contents.length; i++) {
+        const root = contents.get(i);
+        if (root && typeof (root as any).getNsURI === 'function') {
+          const rootPkg = root as unknown as EPackage;
+          if (rootPkg.getNsURI() === baseURI) {
+            return this.resolveFragmentInPackage(rootPkg, fragment);
+          }
+        }
       }
 
       // FALLBACK: Try to resolve via ResourceSet (for file-based resources)
