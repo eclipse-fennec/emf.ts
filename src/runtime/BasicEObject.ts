@@ -264,10 +264,8 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
    * Notifies a change to a feature of this notifier as described by the notification.
    */
   eNotify(notification: Notification): void {
-    console.log('[BasicEObject] eNotify called, deliver:', this._eDeliver, 'adapters:', this._eAdapters.length);
     if (this._eDeliver && this._eAdapters.length > 0) {
       for (const adapter of this._eAdapters) {
-        console.log('[BasicEObject] Calling notifyChanged on adapter:', adapter.constructor?.name);
         adapter.notifyChanged(notification);
       }
     }
@@ -383,7 +381,6 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
     }
 
     // Send notification
-    console.log('[BasicEObject] eSet - checking notification: _eDeliver=', this._eDeliver, '_eAdapters.length=', this._eAdapters.length);
     if (this._eDeliver && this._eAdapters.length > 0) {
       const notification = new NotificationImpl(
         this,
@@ -393,8 +390,6 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
         newValue
       );
       this.eNotify(notification);
-    } else {
-      console.log('[BasicEObject] eSet - NOT sending notification');
     }
   }
 

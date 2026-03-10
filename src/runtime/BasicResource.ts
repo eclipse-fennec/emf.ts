@@ -298,7 +298,6 @@ export class BasicResource implements Resource, Notifier {
       const data = this.serialize();
 
       // Would write to file/network here
-      console.log('[Resource] Saved:', this.uri?.toString(), data);
 
       this.modified = false;
     } catch (err) {
@@ -315,7 +314,6 @@ export class BasicResource implements Resource, Notifier {
 
     try {
       // Would load from file/network here
-      console.log('[Resource] Loading:', this.uri?.toString());
 
       // For now, just mark as loaded
       this.loaded = true;

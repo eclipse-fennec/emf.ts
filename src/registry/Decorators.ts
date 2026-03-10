@@ -33,7 +33,6 @@ export function EMFPlugin(config: {
 }): ClassDecorator {
   return function (target: Function) {
     pluginMetadata.set(target, config);
-    console.log(`[Decorator] @EMFPlugin: ${config.id}`);
   };
 }
 
@@ -64,7 +63,6 @@ export function RegisterPackage(config: {
         genModel: config.genModel
       }
     });
-    console.log(`[Decorator] @RegisterPackage: ${config.uri}`);
   };
 }
 
@@ -88,7 +86,6 @@ export function DynamicPackage(config: {
       point: ExtensionPoints.DYNAMIC_PACKAGE,
       contribution: config
     });
-    console.log(`[Decorator] @DynamicPackage: ${config.uri}`);
   };
 }
 
@@ -109,7 +106,6 @@ export function RegisterFactory(config: { uri: string }): ClassDecorator {
         factory: async () => new (target as any)()
       }
     });
-    console.log(`[Decorator] @RegisterFactory: ${config.uri}`);
   };
 }
 
@@ -133,7 +129,6 @@ export function URIMapping(config: {
       point: ExtensionPoints.URI_MAPPING,
       contribution: config
     });
-    console.log(`[Decorator] @URIMapping: ${config.source} -> ${config.target}`);
   };
 }
 
@@ -158,7 +153,6 @@ export function ValidationDelegate(config: { uri: string }): ClassDecorator {
         }
       }
     });
-    console.log(`[Decorator] @ValidationDelegate: ${config.uri}`);
   };
 }
 
@@ -176,8 +170,6 @@ function addExtension(target: Function, extension: ExtensionConfiguration): void
  * Call this at application startup
  */
 export async function scanAndRegisterPlugins(classes: Function[]): Promise<void> {
-  console.log(`[PluginScanner] Scanning ${classes.length} classes...`);
-
   for (const cls of classes) {
     const plugin = pluginMetadata.get(cls);
     const extensions = extensionMetadata.get(cls);
@@ -188,14 +180,11 @@ export async function scanAndRegisterPlugins(classes: Function[]): Promise<void>
         name: plugin?.name || cls.name,
         version: plugin?.version || '1.0.0',
         extensions: extensions,
-        activator: async () => {
-          console.log(`[PluginScanner] Activated plugin: ${cls.name}`);
-        }
+        activator: async () => {}
       });
     }
   }
 
-  console.log('[PluginScanner] All plugins registered');
 }
 
 /**
@@ -218,5 +207,4 @@ export function Activator(target: Function): void {
     }
   };
   pluginMetadata.set(target, { ...metadata, activator });
-  console.log(`[Decorator] @Activator: ${target.name}`);
 }

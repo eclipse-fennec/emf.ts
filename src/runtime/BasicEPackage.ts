@@ -37,11 +37,9 @@ class EClassifiersEList extends BasicEList<EClassifier> {
   override getFeature() {
     if (!this.feature) {
       const isReg = ecoreRegistry.isRegistered();
-      console.log('[EClassifiersEList] getFeature - isRegistered:', isReg);
       if (isReg) {
         const ePackageClass = ecoreRegistry.getEPackageClass();
         this.feature = ePackageClass.getEStructuralFeature('eClassifiers');
-        console.log('[EClassifiersEList] Resolved feature:', this.feature?.getName());
       }
     }
     return this.feature;

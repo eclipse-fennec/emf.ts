@@ -8,6 +8,7 @@
 
 import { EModelElement } from './EModelElement';
 import { EObject } from './EObject';
+import { EMap } from './EMap';
 
 /**
  * A representation of the model object 'EAnnotation'.
@@ -27,7 +28,7 @@ export interface EAnnotation extends EModelElement {
   /**
    * Returns the map of key-value details.
    */
-  getDetails(): Map<string, string>;
+  getDetails(): EMap<string, string>;
 
   /**
    * Returns the model element this annotation is attached to.

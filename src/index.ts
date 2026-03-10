@@ -24,6 +24,7 @@ export * from './EFactory';
 export * from './EOperation';
 export * from './EParameter';
 export * from './EAnnotation';
+export * from './EMap';
 export * from './ETypeParameter';
 export * from './EGenericType';
 
@@ -35,6 +36,9 @@ export * from './InternalEObject';
 
 // XMI/XML serialization
 export * from './xmi';
+
+// JSON serialization
+export * from './json';
 
 // Type guards
 export * from './util/TypeGuards';

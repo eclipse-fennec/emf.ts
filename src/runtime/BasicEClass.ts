@@ -33,6 +33,7 @@ export class BasicEClass extends BasicEObject implements EClass {
   private instanceClass: Function | null = null;
   private featureID: number = 0;
   private eAnnotations: EAnnotation[] = [];
+  private xmlNameToFeature: Map<string, EStructuralFeature> = new Map();
 
   // Public getter for PrimeVue compatibility (optionLabel="name")
   get name(): string | null {
@@ -134,11 +135,15 @@ export class BasicEClass extends BasicEObject implements EClass {
   }
 
   getEAllStructuralFeatures(): EStructuralFeature[] {
-    const all: EStructuralFeature[] = [...this.getEStructuralFeatures()];
+    const all: EStructuralFeature[] = [];
 
+    // Inherited features first (EMF standard ordering)
     for (const superType of this.getEAllSuperTypes()) {
       all.push(...superType.getEStructuralFeatures());
     }
+
+    // Then own features
+    all.push(...this.getEStructuralFeatures());
 
     return all;
   }
@@ -179,10 +184,30 @@ export class BasicEClass extends BasicEObject implements EClass {
 
   getEStructuralFeature(featureNameOrID: string | number): EStructuralFeature | null {
     if (typeof featureNameOrID === 'string') {
-      return this.getEAllStructuralFeatures().find(f => f.getName() === featureNameOrID) || null;
+      // First try exact match by feature name
+      const byName = this.getEAllStructuralFeatures().find(f => f.getName() === featureNameOrID);
+      if (byName) return byName;
+      // Then try XML name mapping (ExtendedMetaData)
+      const byXmlName = this.xmlNameToFeature.get(featureNameOrID);
+      if (byXmlName) return byXmlName;
+      // Also check supertype XML name mappings
+      for (const superType of this.getEAllSuperTypes()) {
+        if (superType instanceof BasicEClass) {
+          const fromSuper = superType.xmlNameToFeature.get(featureNameOrID);
+          if (fromSuper) return fromSuper;
+        }
+      }
+      return null;
     } else {
       return this.getEAllStructuralFeatures()[featureNameOrID] || null;
     }
+  }
+
+  /**
+   * Register an XML serialization name for a feature (from ExtendedMetaData annotations)
+   */
+  registerXmlName(xmlName: string, feature: EStructuralFeature): void {
+    this.xmlNameToFeature.set(xmlName, feature);
   }
 
   isSuperTypeOf(someClass: EClass): boolean {

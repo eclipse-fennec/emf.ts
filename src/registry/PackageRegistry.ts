@@ -31,7 +31,6 @@ export class ExtensionAwarePackageRegistry implements IEPackageRegistry {
       {
         onExtensionAdded: (ext: Extension<GeneratedPackageExtension>) => {
           const contrib = ext.contribution;
-          console.log(`[PackageRegistry] Registered generated package: ${contrib.uri}`);
 
           // Store as pending (lazy loading)
           this.pendingPackages.set(contrib.uri, async () => {
@@ -42,7 +41,6 @@ export class ExtensionAwarePackageRegistry implements IEPackageRegistry {
         },
         onExtensionRemoved: (ext: Extension<GeneratedPackageExtension>) => {
           const uri = ext.contribution.uri;
-          console.log(`[PackageRegistry] Unregistered package: ${uri}`);
           this.packages.delete(uri);
           this.pendingPackages.delete(uri);
         }
@@ -55,7 +53,6 @@ export class ExtensionAwarePackageRegistry implements IEPackageRegistry {
       {
         onExtensionAdded: async (ext: Extension<DynamicPackageExtension>) => {
           const contrib = ext.contribution;
-          console.log(`[PackageRegistry] Loading dynamic package: ${contrib.uri} from ${contrib.location}`);
 
           // Load .ecore file
           const pkg = await this.loadDynamicPackage(contrib.location);
@@ -79,8 +76,6 @@ export class ExtensionAwarePackageRegistry implements IEPackageRegistry {
     generatedPkgs.forEach(ext => {
       this.pendingPackages.set(ext.contribution.uri, ext.contribution.packageClass);
     });
-
-    console.log(`[PackageRegistry] Found ${generatedPkgs.length} generated packages`);
   }
 
   private async loadDynamicPackage(location: string): Promise<EPackage> {
@@ -105,7 +100,6 @@ export class ExtensionAwarePackageRegistry implements IEPackageRegistry {
       // If the loader returns a Promise, we can't handle it synchronously
       // User should pre-load async packages before accessing them
       if (pkg instanceof Promise) {
-        console.warn(`[PackageRegistry] Cannot lazy-load async package: ${nsURI}. Pre-load it first.`);
         return null;
       }
 
@@ -190,7 +184,6 @@ export class ExtensionAwarePackageRegistry implements IEPackageRegistry {
       })
     );
     this.pendingPackages.clear();
-    console.log(`[PackageRegistry] Loaded ${pending.length} packages`);
   }
 }
 

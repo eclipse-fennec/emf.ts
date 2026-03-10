@@ -1,6 +1,6 @@
 {
   "name": "emfts",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "TypeScript interfaces for Eclipse EMF Core",
   "type": "module",
   "main": "dist/index.js",

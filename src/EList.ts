@@ -534,28 +534,22 @@ export class BasicEList<T> implements NotifyingEList<T> {
   ): void {
     // Use getFeature() to allow lazy resolution in subclasses
     const feature = this.getFeature();
-    console.log('[BasicEList] dispatchNotification - owner:', !!this.owner, 'feature:', feature?.getName?.() || feature);
     if (!this.owner || !feature) {
-      console.log('[BasicEList] No owner or feature, skipping notification');
       return;
     }
 
     // Check if owner delivers notifications
     if ('eDeliver' in this.owner && !(this.owner as any).eDeliver()) {
-      console.log('[BasicEList] Owner does not deliver notifications');
       return;
     }
 
     // Check if owner has adapters
     if ('eAdapters' in this.owner) {
       const adapters = (this.owner as any).eAdapters();
-      console.log('[BasicEList] Owner adapters count:', adapters?.length || 0);
       if (!adapters || adapters.length === 0) {
-        console.log('[BasicEList] No adapters on owner, skipping notification');
         return;
       }
     } else {
-      console.log('[BasicEList] Owner has no eAdapters method');
       return;
     }
 
@@ -568,7 +562,6 @@ export class BasicEList<T> implements NotifyingEList<T> {
       position
     );
 
-    console.log('[BasicEList] Calling eNotify on owner');
     if ('eNotify' in this.owner) {
       (this.owner as any).eNotify(notification);
     }

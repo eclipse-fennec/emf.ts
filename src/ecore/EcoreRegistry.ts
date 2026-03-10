@@ -112,6 +112,46 @@ class EcoreClassRegistry {
   }
 
   /**
+   * Get the EClass for EAnnotation
+   */
+  getEAnnotationClass(): EClass {
+    if (!this._getEcorePackage) {
+      throw new Error('EcorePackage not registered. Import EcorePackage first.');
+    }
+    return this._getEcorePackage().getEAnnotationClass();
+  }
+
+  /**
+   * Get the EClass for EStringToStringMapEntry
+   */
+  getEStringToStringMapEntryClass(): EClass {
+    if (!this._getEcorePackage) {
+      throw new Error('EcorePackage not registered. Import EcorePackage first.');
+    }
+    return this._getEcorePackage().getEStringToStringMapEntryClass();
+  }
+
+  /**
+   * Get the EClass for EEnum
+   */
+  getEEnumClass(): EClass {
+    if (!this._getEcorePackage) {
+      throw new Error('EcorePackage not registered. Import EcorePackage first.');
+    }
+    return this._getEcorePackage().getEEnumClass();
+  }
+
+  /**
+   * Get the EClass for EEnumLiteral
+   */
+  getEEnumLiteralClass(): EClass {
+    if (!this._getEcorePackage) {
+      throw new Error('EcorePackage not registered. Import EcorePackage first.');
+    }
+    return this._getEcorePackage().getEEnumLiteralClass();
+  }
+
+  /**
    * Check if registry is initialized
    */
   isRegistered(): boolean {

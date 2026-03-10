@@ -310,16 +310,13 @@ export class XMLSave {
   protected hasElementContent(obj: EObject): boolean {
     const eClass = obj.eClass();
     const features = eClass.getEAllStructuralFeatures();
-    console.log('[XMLSave] hasElementContent for', eClass.getName(), '- features count:', features.length);
 
     for (const feature of features) {
-      const featureName = feature.getName?.() || 'unknown';
       if ('isContainment' in feature) {
         const ref = feature as EReference;
         if (feature.isTransient()) continue;
 
         const value = obj.eGet(ref);
-        console.log('[XMLSave]   feature:', featureName, 'isContainment:', ref.isContainment(), 'value:', value, 'length:', Array.isArray(value) ? value.length : 'N/A');
         if (value === null || value === undefined) continue;
 
         if (ref.isContainment()) {

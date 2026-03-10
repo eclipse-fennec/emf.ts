@@ -188,5 +188,4 @@ export function initializeStandardExtensionPoints(registry: import('./PluginRegi
   registry.defineExtensionPoint(SETTING_DELEGATE_POINT);
   registry.defineExtensionPoint(INVOCATION_DELEGATE_POINT);
 
-  console.log('[ExtensionPoints] Initialized 10 standard extension points');
 }
