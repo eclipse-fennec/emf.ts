@@ -1,5 +1,5 @@
 {
-  "name": "emfts",
+  "name": "@emfts/core",
   "version": "0.1.0",
   "description": "TypeScript interfaces for Eclipse EMF Core",
   "type": "module",
