@@ -6,9 +6,9 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from './EObject';
-import { EClassifier } from './EClassifier';
-import { ETypeParameter } from './ETypeParameter';
+import { EObject } from './EObject.js';
+import { EClassifier } from './EClassifier.js';
+import { ETypeParameter } from './ETypeParameter.js';
 
 /**
  * A representation of the model object 'EGeneric Type'.

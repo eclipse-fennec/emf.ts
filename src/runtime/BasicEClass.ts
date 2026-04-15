@@ -6,17 +6,17 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EClass } from '../EClass';
-import { EAttribute } from '../EAttribute';
-import { EReference } from '../EReference';
-import { EOperation } from '../EOperation';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { EPackage } from '../EPackage';
-import { BasicEObject } from './BasicEObject';
-import { EAnnotation } from '../EAnnotation';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
-import { EList, EObjectContainmentWithInverseEListLazy, createIndexedProxy } from '../EList';
-import { EObject } from '../EObject';
+import { EClass } from '../EClass.js';
+import { EAttribute } from '../EAttribute.js';
+import { EReference } from '../EReference.js';
+import { EOperation } from '../EOperation.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EPackage } from '../EPackage.js';
+import { BasicEObject } from './BasicEObject.js';
+import { EAnnotation } from '../EAnnotation.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EList, EObjectContainmentWithInverseEListLazy, createIndexedProxy } from '../EList.js';
+import { EObject } from '../EObject.js';
 
 /**
  * Basic EClass implementation

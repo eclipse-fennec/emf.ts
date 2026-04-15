@@ -6,8 +6,8 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { Registry, PluginDescriptor, ExtensionConfiguration } from './PluginRegistry';
-import { ExtensionPoints } from './ExtensionPoints';
+import { Registry, PluginDescriptor, ExtensionConfiguration } from './PluginRegistry.js';
+import { ExtensionPoints } from './ExtensionPoints.js';
 
 /**
  * Metadata storage for decorators

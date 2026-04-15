@@ -6,11 +6,11 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EAttribute } from '../EAttribute';
-import { EDataType } from '../EDataType';
-import { EClass } from '../EClass';
-import { BasicEStructuralFeature } from './BasicEStructuralFeature';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
+import { EAttribute } from '../EAttribute.js';
+import { EDataType } from '../EDataType.js';
+import { EClass } from '../EClass.js';
+import { BasicEStructuralFeature } from './BasicEStructuralFeature.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 
 /**
  * Basic EAttribute implementation
@@ -67,7 +67,7 @@ export class BasicEAttribute extends BasicEStructuralFeature implements EAttribu
   /**
    * Override eGet to handle attribute-specific features
    */
-  override eGet(feature: import('../EStructuralFeature').EStructuralFeature): any {
+  override eGet(feature: import('../EStructuralFeature.js').EStructuralFeature): any {
     const featureName = feature.getName();
     switch (featureName) {
       case 'iD':
@@ -80,7 +80,7 @@ export class BasicEAttribute extends BasicEStructuralFeature implements EAttribu
   /**
    * Override eSet to handle attribute-specific features
    */
-  override eSet(feature: import('../EStructuralFeature').EStructuralFeature, newValue: any): void {
+  override eSet(feature: import('../EStructuralFeature.js').EStructuralFeature, newValue: any): void {
     const featureName = feature.getName();
     switch (featureName) {
       case 'iD':

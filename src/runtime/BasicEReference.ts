@@ -6,11 +6,11 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EReference } from '../EReference';
-import { EClass } from '../EClass';
-import { EAttribute } from '../EAttribute';
-import { BasicEStructuralFeature } from './BasicEStructuralFeature';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
+import { EReference } from '../EReference.js';
+import { EClass } from '../EClass.js';
+import { EAttribute } from '../EAttribute.js';
+import { BasicEStructuralFeature } from './BasicEStructuralFeature.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 
 /**
  * Basic EReference implementation
@@ -96,7 +96,7 @@ export class BasicEReference extends BasicEStructuralFeature implements EReferen
   /**
    * Override eGet to handle reference-specific features
    */
-  override eGet(feature: import('../EStructuralFeature').EStructuralFeature): any {
+  override eGet(feature: import('../EStructuralFeature.js').EStructuralFeature): any {
     const featureName = feature.getName();
     switch (featureName) {
       case 'containment':
@@ -115,7 +115,7 @@ export class BasicEReference extends BasicEStructuralFeature implements EReferen
   /**
    * Override eSet to handle reference-specific features
    */
-  override eSet(feature: import('../EStructuralFeature').EStructuralFeature, newValue: any): void {
+  override eSet(feature: import('../EStructuralFeature.js').EStructuralFeature, newValue: any): void {
     const featureName = feature.getName();
     switch (featureName) {
       case 'containment':

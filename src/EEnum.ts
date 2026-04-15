@@ -6,8 +6,8 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EDataType } from './EDataType';
-import { EEnumLiteral } from './EEnumLiteral';
+import { EDataType } from './EDataType.js';
+import { EEnumLiteral } from './EEnumLiteral.js';
 
 /**
  * A representation of the model object 'EEnum'.

@@ -6,19 +6,19 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from '../EObject';
-import { EClass } from '../EClass';
-import { EClassifier } from '../EClassifier';
-import { EDataType } from '../EDataType';
-import { EEnum } from '../EEnum';
-import { EAttribute } from '../EAttribute';
-import { EReference } from '../EReference';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { EPackage } from '../EPackage';
-import { EFactory } from '../EFactory';
-import { EOperation } from '../EOperation';
-import { EParameter } from '../EParameter';
-import { EAnnotation } from '../EAnnotation';
+import { EObject } from '../EObject.js';
+import { EClass } from '../EClass.js';
+import { EClassifier } from '../EClassifier.js';
+import { EDataType } from '../EDataType.js';
+import { EEnum } from '../EEnum.js';
+import { EAttribute } from '../EAttribute.js';
+import { EReference } from '../EReference.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EPackage } from '../EPackage.js';
+import { EFactory } from '../EFactory.js';
+import { EOperation } from '../EOperation.js';
+import { EParameter } from '../EParameter.js';
+import { EAnnotation } from '../EAnnotation.js';
 
 /**
  * Check if an object is an EObject

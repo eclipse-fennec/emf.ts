@@ -6,19 +6,19 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from '../EObject';
-import { EClass } from '../EClass';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { EReference } from '../EReference';
-import { EAttribute } from '../EAttribute';
-import { EDataType } from '../EDataType';
-import { EPackage } from '../EPackage';
-import { Resource } from '../Resource';
-import { URI } from '../URI';
-import { XMLHelper, XMLHelperImpl } from './XMLHelper';
-import { XSI_URI, XMI_URI } from './XMLHandler';
-import { isEList } from '../EList';
-import { InternalEObject, isInternalEObject } from '../InternalEObject';
+import { EObject } from '../EObject.js';
+import { EClass } from '../EClass.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EReference } from '../EReference.js';
+import { EAttribute } from '../EAttribute.js';
+import { EDataType } from '../EDataType.js';
+import { EPackage } from '../EPackage.js';
+import { Resource } from '../Resource.js';
+import { URI } from '../URI.js';
+import { XMLHelper, XMLHelperImpl } from './XMLHelper.js';
+import { XSI_URI, XMI_URI } from './XMLHandler.js';
+import { isEList } from '../EList.js';
+import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
 
 /**
  * XMLSave - Serializes EObjects to XML/XMI format

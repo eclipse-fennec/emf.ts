@@ -6,13 +6,13 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EEnum } from '../EEnum';
-import { EEnumLiteral } from '../EEnumLiteral';
-import { EClass } from '../EClass';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { BasicEDataType } from './BasicEDataType';
-import { BasicEEnumLiteral } from './BasicEEnumLiteral';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
+import { EEnum } from '../EEnum.js';
+import { EEnumLiteral } from '../EEnumLiteral.js';
+import { EClass } from '../EClass.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { BasicEDataType } from './BasicEDataType.js';
+import { BasicEEnumLiteral } from './BasicEEnumLiteral.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 
 /**
  * Basic EEnum implementation

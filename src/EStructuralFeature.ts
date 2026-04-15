@@ -6,9 +6,9 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { ENamedElement } from './ENamedElement';
-import { EClassifier } from './EClassifier';
-import { EClass } from './EClass';
+import { ENamedElement } from './ENamedElement.js';
+import { EClassifier } from './EClassifier.js';
+import { EClass } from './EClass.js';
 
 /**
  * A representation of the model object 'EStructural Feature'.

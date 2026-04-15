@@ -6,10 +6,10 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { Resource } from './Resource';
-import { URI } from './URI';
-import { EObject } from './EObject';
-import { EPackageRegistry } from './EPackage';
+import { Resource } from './Resource.js';
+import { URI } from './URI.js';
+import { EObject } from './EObject.js';
+import { EPackageRegistry } from './EPackage.js';
 
 /**
  * A collection of related persistent documents.

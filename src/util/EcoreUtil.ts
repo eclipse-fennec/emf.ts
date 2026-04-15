@@ -6,14 +6,14 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from '../EObject';
-import { EClass } from '../EClass';
-import { EReference } from '../EReference';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { Resource } from '../Resource';
-import { ResourceSet } from '../ResourceSet';
-import { URI } from '../URI';
-import { InternalEObject, isInternalEObject } from '../InternalEObject';
+import { EObject } from '../EObject.js';
+import { EClass } from '../EClass.js';
+import { EReference } from '../EReference.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { Resource } from '../Resource.js';
+import { ResourceSet } from '../ResourceSet.js';
+import { URI } from '../URI.js';
+import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
 
 /**
  * EcoreUtil provides utility methods for working with Ecore models.

@@ -6,11 +6,11 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from './EObject';
-import { EStructuralFeature } from './EStructuralFeature';
-import { EReference } from './EReference';
-import { InternalEObject, isInternalEObject } from './InternalEObject';
-import { Notification, NotificationImpl, NotificationType, NotificationEventType, NO_INDEX } from './notify/Notification';
+import { EObject } from './EObject.js';
+import { EStructuralFeature } from './EStructuralFeature.js';
+import { EReference } from './EReference.js';
+import { InternalEObject, isInternalEObject } from './InternalEObject.js';
+import { Notification, NotificationImpl, NotificationType, NotificationEventType, NO_INDEX } from './notify/Notification.js';
 
 /**
  * EList interface - A list that sends notifications on modifications.

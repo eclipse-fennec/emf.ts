@@ -6,16 +6,16 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EClass } from '../EClass';
-import { EClassifier } from '../EClassifier';
-import { EDataType } from '../EDataType';
-import { EFactory } from '../EFactory';
-import { EObject } from '../EObject';
-import { EPackage, EPackageRegistry } from '../EPackage';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { EReference } from '../EReference';
-import { Resource } from '../Resource';
-import { URI } from '../URI';
+import { EClass } from '../EClass.js';
+import { EClassifier } from '../EClassifier.js';
+import { EDataType } from '../EDataType.js';
+import { EFactory } from '../EFactory.js';
+import { EObject } from '../EObject.js';
+import { EPackage, EPackageRegistry } from '../EPackage.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EReference } from '../EReference.js';
+import { Resource } from '../Resource.js';
+import { URI } from '../URI.js';
 /**
  * Option key for feature name mapping.
  * Value: Map<string, string> where key = feature name, value = XML name

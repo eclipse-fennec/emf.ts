@@ -6,14 +6,14 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { Resource } from '../Resource';
-import { ResourceSet } from '../ResourceSet';
-import { URI } from '../URI';
-import { EObject } from '../EObject';
-import { EList, createResourceContentsEList } from '../EList';
-import { Notifier } from '../notify/Notifier';
-import { Adapter } from '../notify/Adapter';
-import { Notification } from '../notify/Notification';
+import { Resource } from '../Resource.js';
+import { ResourceSet } from '../ResourceSet.js';
+import { URI } from '../URI.js';
+import { EObject } from '../EObject.js';
+import { EList, createResourceContentsEList } from '../EList.js';
+import { Notifier } from '../notify/Notifier.js';
+import { Adapter } from '../notify/Adapter.js';
+import { Notification } from '../notify/Notification.js';
 
 /**
  * Basic Resource implementation

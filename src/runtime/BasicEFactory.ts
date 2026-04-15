@@ -6,14 +6,14 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EFactory } from '../EFactory';
-import { EPackage } from '../EPackage';
-import { EClass } from '../EClass';
-import { EObject } from '../EObject';
-import { EDataType } from '../EDataType';
-import { DynamicEObject } from './BasicEObject';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
-import { dataTypeRegistry } from './DataTypeRegistry';
+import { EFactory } from '../EFactory.js';
+import { EPackage } from '../EPackage.js';
+import { EClass } from '../EClass.js';
+import { EObject } from '../EObject.js';
+import { EDataType } from '../EDataType.js';
+import { DynamicEObject } from './BasicEObject.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { dataTypeRegistry } from './DataTypeRegistry.js';
 
 /**
  * Basic EFactory implementation

@@ -6,12 +6,12 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { BasicResource } from '../runtime/BasicResource';
-import { URI } from '../URI';
-import { EObject } from '../EObject';
-import { Resource } from '../Resource';
-import { JSONLoad } from './JSONLoad';
-import { JSONSave } from './JSONSave';
+import { BasicResource } from '../runtime/BasicResource.js';
+import { URI } from '../URI.js';
+import { EObject } from '../EObject.js';
+import { Resource } from '../Resource.js';
+import { JSONLoad } from './JSONLoad.js';
+import { JSONSave } from './JSONSave.js';
 
 /**
  * JSONResource - A resource that loads/saves in emfjson-compatible JSON format.

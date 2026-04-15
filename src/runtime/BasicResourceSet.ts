@@ -6,13 +6,13 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { ResourceSet, URIConverter } from '../ResourceSet';
-import { Resource } from '../Resource';
-import { URI } from '../URI';
-import { EObject } from '../EObject';
-import { EPackage, EPackageRegistry } from '../EPackage';
-import { BasicResource } from './BasicResource';
-import { EList, BasicEList, createIndexedProxy } from '../EList';
+import { ResourceSet, URIConverter } from '../ResourceSet.js';
+import { Resource } from '../Resource.js';
+import { URI } from '../URI.js';
+import { EObject } from '../EObject.js';
+import { EPackage, EPackageRegistry } from '../EPackage.js';
+import { BasicResource } from './BasicResource.js';
+import { EList, BasicEList, createIndexedProxy } from '../EList.js';
 
 /**
  * Basic ResourceSet implementation

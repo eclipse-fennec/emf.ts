@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EClassifier } from './EClassifier';
+import { EClassifier } from './EClassifier.js';
 
 /**
  * A representation of the model object 'EData Type'.

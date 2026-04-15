@@ -7,50 +7,50 @@
  */
 
 // Core metamodel interfaces
-export * from './EObject';
-export * from './EList';
-export * from './EModelElement';
-export * from './ENamedElement';
-export * from './EClassifier';
-export * from './EClass';
-export * from './EDataType';
-export * from './EEnum';
-export * from './EEnumLiteral';
-export * from './EStructuralFeature';
-export * from './EAttribute';
-export * from './EReference';
-export * from './EPackage';
-export * from './EFactory';
-export * from './EOperation';
-export * from './EParameter';
-export * from './EAnnotation';
-export * from './EMap';
-export * from './ETypeParameter';
-export * from './EGenericType';
+export * from './EObject.js';
+export * from './EList.js';
+export * from './EModelElement.js';
+export * from './ENamedElement.js';
+export * from './EClassifier.js';
+export * from './EClass.js';
+export * from './EDataType.js';
+export * from './EEnum.js';
+export * from './EEnumLiteral.js';
+export * from './EStructuralFeature.js';
+export * from './EAttribute.js';
+export * from './EReference.js';
+export * from './EPackage.js';
+export * from './EFactory.js';
+export * from './EOperation.js';
+export * from './EParameter.js';
+export * from './EAnnotation.js';
+export * from './EMap.js';
+export * from './ETypeParameter.js';
+export * from './EGenericType.js';
 
 // Resource management
-export * from './Resource';
-export * from './ResourceSet';
-export * from './URI';
-export * from './InternalEObject';
+export * from './Resource.js';
+export * from './ResourceSet.js';
+export * from './URI.js';
+export * from './InternalEObject.js';
 
 // XMI/XML serialization
-export * from './xmi';
+export * from './xmi/index.js';
 
 // JSON serialization
-export * from './json';
+export * from './json/index.js';
 
 // Type guards
-export * from './util/TypeGuards';
+export * from './util/TypeGuards.js';
 
 // Utility classes
-export * from './util/EcoreUtil';
+export * from './util/EcoreUtil.js';
 
 // Notification system
-export * from './notify';
+export * from './notify/index.js';
 
 // Ecore compatibility (EResourceSetImpl, getEcorePackage, etc.)
-export * from './ecore';
+export * from './ecore/index.js';
 
 // Runtime implementations (BasicEPackage, BasicEDataType, dataTypeRegistry, etc.)
-export * from './runtime';
+export * from './runtime/index.js';

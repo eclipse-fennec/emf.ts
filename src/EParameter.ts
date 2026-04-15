@@ -6,9 +6,9 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { ENamedElement } from './ENamedElement';
-import { EOperation } from './EOperation';
-import { EClassifier } from './EClassifier';
+import { ENamedElement } from './ENamedElement.js';
+import { EOperation } from './EOperation.js';
+import { EClassifier } from './EClassifier.js';
 
 /**
  * A representation of the model object 'EParameter'.

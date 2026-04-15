@@ -6,15 +6,15 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from '../EObject';
-import { EClass } from '../EClass';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { EReference } from '../EReference';
-import { EAttribute } from '../EAttribute';
-import { EDataType } from '../EDataType';
-import { Resource } from '../Resource';
-import { isEList } from '../EList';
-import { InternalEObject, isInternalEObject } from '../InternalEObject';
+import { EObject } from '../EObject.js';
+import { EClass } from '../EClass.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EReference } from '../EReference.js';
+import { EAttribute } from '../EAttribute.js';
+import { EDataType } from '../EDataType.js';
+import { Resource } from '../Resource.js';
+import { isEList } from '../EList.js';
+import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
 
 /**
  * Options for JSON serialization

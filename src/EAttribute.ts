@@ -6,8 +6,8 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EStructuralFeature } from './EStructuralFeature';
-import { EDataType } from './EDataType';
+import { EStructuralFeature } from './EStructuralFeature.js';
+import { EDataType } from './EDataType.js';
 
 /**
  * A representation of the model object 'EAttribute'.

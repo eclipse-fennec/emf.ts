@@ -6,11 +6,11 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from './EObject';
-import { EClass } from './EClass';
-import { EStructuralFeature } from './EStructuralFeature';
-import { Resource } from './Resource';
-import { URI } from './URI';
+import { EObject } from './EObject.js';
+import { EClass } from './EClass.js';
+import { EStructuralFeature } from './EStructuralFeature.js';
+import { Resource } from './Resource.js';
+import { URI } from './URI.js';
 
 /**
  * Internal interface that extends EObject with implementation details

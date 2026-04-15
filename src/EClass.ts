@@ -6,12 +6,12 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EClassifier } from './EClassifier';
-import { EAttribute } from './EAttribute';
-import { EReference } from './EReference';
-import { EOperation } from './EOperation';
-import { EStructuralFeature } from './EStructuralFeature';
-import { EList } from './EList';
+import { EClassifier } from './EClassifier.js';
+import { EAttribute } from './EAttribute.js';
+import { EReference } from './EReference.js';
+import { EOperation } from './EOperation.js';
+import { EStructuralFeature } from './EStructuralFeature.js';
+import { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EClass'.

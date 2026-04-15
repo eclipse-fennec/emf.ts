@@ -6,9 +6,9 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EModelElement } from './EModelElement';
-import { EObject } from './EObject';
-import { EMap } from './EMap';
+import { EModelElement } from './EModelElement.js';
+import { EObject } from './EObject.js';
+import { EMap } from './EMap.js';
 
 /**
  * A representation of the model object 'EAnnotation'.

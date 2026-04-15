@@ -6,16 +6,16 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EPackage } from '../EPackage';
-import { EClassifier } from '../EClassifier';
-import { EFactory } from '../EFactory';
-import { EClass } from '../EClass';
-import { BasicEObject } from './BasicEObject';
-import { EAnnotation } from '../EAnnotation';
-import { BasicEFactory } from './BasicEFactory';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
-import { BasicEList, createIndexedProxy } from '../EList';
-import type { EList } from '../EList';
+import { EPackage } from '../EPackage.js';
+import { EClassifier } from '../EClassifier.js';
+import { EFactory } from '../EFactory.js';
+import { EClass } from '../EClass.js';
+import { BasicEObject } from './BasicEObject.js';
+import { EAnnotation } from '../EAnnotation.js';
+import { BasicEFactory } from './BasicEFactory.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { BasicEList, createIndexedProxy } from '../EList.js';
+import type { EList } from '../EList.js';
 
 /**
  * Containment EList for EPackage.eClassifiers
@@ -287,7 +287,7 @@ export class BasicEPackage extends BasicEObject implements EPackage {
   /**
    * Override eGet to handle package-specific features
    */
-  override eGet(feature: import('../EStructuralFeature').EStructuralFeature): any {
+  override eGet(feature: import('../EStructuralFeature.js').EStructuralFeature): any {
     const featureName = feature.getName();
     switch (featureName) {
       case 'name':
@@ -312,7 +312,7 @@ export class BasicEPackage extends BasicEObject implements EPackage {
   /**
    * Override eSet to handle package-specific features
    */
-  override eSet(feature: import('../EStructuralFeature').EStructuralFeature, newValue: any): void {
+  override eSet(feature: import('../EStructuralFeature.js').EStructuralFeature, newValue: any): void {
     const featureName = feature.getName();
     switch (featureName) {
       case 'name':

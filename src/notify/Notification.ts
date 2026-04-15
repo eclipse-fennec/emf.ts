@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EStructuralFeature } from '../EStructuralFeature';
+import { EStructuralFeature } from '../EStructuralFeature.js';
 
 /**
  * Event type constants for notifications

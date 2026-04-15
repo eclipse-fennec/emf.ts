@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-export * from './Notification';
-export * from './Adapter';
-export * from './Notifier';
-export * from './EContentAdapter';
+export * from './Notification.js';
+export * from './Adapter.js';
+export * from './Notifier.js';
+export * from './EContentAdapter.js';

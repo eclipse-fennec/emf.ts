@@ -6,18 +6,18 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from '../EObject';
-import { EClass } from '../EClass';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { EReference } from '../EReference';
-import { EOperation } from '../EOperation';
-import { Resource } from '../Resource';
-import { URI } from '../URI';
-import { InternalEObject, isInternalEObject } from '../InternalEObject';
-import { Adapter, isAdapterInternal } from '../notify/Adapter';
-import { Notification, NotificationImpl, NotificationType } from '../notify/Notification';
-import { Notifier } from '../notify/Notifier';
-import { EList, BasicEList, EObjectContainmentEList, EObjectEList, isEList, createContainmentEList, createEObjectEList, createBasicEList } from '../EList';
+import { EObject } from '../EObject.js';
+import { EClass } from '../EClass.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EReference } from '../EReference.js';
+import { EOperation } from '../EOperation.js';
+import { Resource } from '../Resource.js';
+import { URI } from '../URI.js';
+import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
+import { Adapter, isAdapterInternal } from '../notify/Adapter.js';
+import { Notification, NotificationImpl, NotificationType } from '../notify/Notification.js';
+import { Notifier } from '../notify/Notifier.js';
+import { EList, BasicEList, EObjectContainmentEList, EObjectEList, isEList, createContainmentEList, createEObjectEList, createBasicEList } from '../EList.js';
 
 /**
  * Minimal EObject implementation

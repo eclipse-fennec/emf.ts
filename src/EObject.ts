@@ -6,11 +6,11 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EClass } from './EClass';
-import { EStructuralFeature } from './EStructuralFeature';
-import { EReference } from './EReference';
-import { EOperation } from './EOperation';
-import { Resource } from './Resource';
+import { EClass } from './EClass.js';
+import { EStructuralFeature } from './EStructuralFeature.js';
+import { EReference } from './EReference.js';
+import { EOperation } from './EOperation.js';
+import { Resource } from './Resource.js';
 
 /**
  * EObject is the root of all modeled objects.

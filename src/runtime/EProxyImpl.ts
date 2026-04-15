@@ -6,14 +6,14 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from '../EObject';
-import { EClass } from '../EClass';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { EReference } from '../EReference';
-import { EOperation } from '../EOperation';
-import { Resource } from '../Resource';
-import { URI } from '../URI';
-import { InternalEObject } from '../InternalEObject';
+import { EObject } from '../EObject.js';
+import { EClass } from '../EClass.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EReference } from '../EReference.js';
+import { EOperation } from '../EOperation.js';
+import { Resource } from '../Resource.js';
+import { URI } from '../URI.js';
+import { InternalEObject } from '../InternalEObject.js';
 
 /**
  * Proxy implementation for unresolved references.

@@ -6,19 +6,19 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EClass } from '../EClass';
-import { EClassifier } from '../EClassifier';
-import { EDataType } from '../EDataType';
-import { EFactory } from '../EFactory';
-import { EObject } from '../EObject';
-import { EPackage, EPackageRegistry } from '../EPackage';
-import { EReference } from '../EReference';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { Resource } from '../Resource';
-import { URI } from '../URI';
-import { InternalEObject, isInternalEObject } from '../InternalEObject';
-import { EProxyImpl } from '../runtime/EProxyImpl';
- import { EList } from '../EList';
+import { EClass } from '../EClass.js';
+import { EClassifier } from '../EClassifier.js';
+import { EDataType } from '../EDataType.js';
+import { EFactory } from '../EFactory.js';
+import { EObject } from '../EObject.js';
+import { EPackage, EPackageRegistry } from '../EPackage.js';
+import { EReference } from '../EReference.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { Resource } from '../Resource.js';
+import { URI } from '../URI.js';
+import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
+import { EProxyImpl } from '../runtime/EProxyImpl.js';
+ import { EList } from '../EList.js';
 import {
   XMLHelper,
   XMLHelperImpl,
@@ -27,7 +27,7 @@ import {
   IS_MANY_ADD,
   IS_MANY_MOVE,
   OTHER
-} from './XMLHelper';
+} from './XMLHelper.js';
 
 /**
  * Stack types for tracking parse state
@@ -651,7 +651,7 @@ export class XMLHandler {
       const eType = feature.getEType();
       const dataType = eType as EDataType;
       // Handle both static and dynamic EDataType objects
-      let eFactory: import('../EFactory').EFactory | null = null;
+      let eFactory: import('../EFactory.js').EFactory | null = null;
       if (dataType && typeof dataType.getEPackage === 'function') {
         eFactory = dataType.getEPackage()?.getEFactoryInstance() ?? null;
       } else if (dataType && typeof (dataType as any).eGet === 'function' && typeof (dataType as any).eClass === 'function') {

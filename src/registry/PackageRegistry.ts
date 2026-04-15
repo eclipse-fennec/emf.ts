@@ -6,10 +6,10 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EPackage, EPackageRegistry as IEPackageRegistry } from '../EPackage';
-import { EFactory } from '../EFactory';
-import { Registry, ExtensionListener, Extension } from './PluginRegistry';
-import { ExtensionPoints, GeneratedPackageExtension, DynamicPackageExtension } from './ExtensionPoints';
+import { EPackage, EPackageRegistry as IEPackageRegistry } from '../EPackage.js';
+import { EFactory } from '../EFactory.js';
+import { Registry, ExtensionListener, Extension } from './PluginRegistry.js';
+import { ExtensionPoints, GeneratedPackageExtension, DynamicPackageExtension } from './ExtensionPoints.js';
 
 /**
  * Extension-aware EPackage Registry

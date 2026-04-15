@@ -6,11 +6,11 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { ExtensionPoint } from './PluginRegistry';
-import { EPackage } from '../EPackage';
-import { EFactory } from '../EFactory';
-import { Resource } from '../Resource';
-import { URI } from '../URI';
+import { ExtensionPoint } from './PluginRegistry.js';
+import { EPackage } from '../EPackage.js';
+import { EFactory } from '../EFactory.js';
+import { Resource } from '../Resource.js';
+import { URI } from '../URI.js';
 
 /**
  * Extension Point IDs (like in plugin.xml)
@@ -176,7 +176,7 @@ export const INVOCATION_DELEGATE_POINT: ExtensionPoint<InvocationDelegateExtensi
 /**
  * Initialize all standard extension points
  */
-export function initializeStandardExtensionPoints(registry: import('./PluginRegistry').PluginRegistry): void {
+export function initializeStandardExtensionPoints(registry: import('./PluginRegistry.js').PluginRegistry): void {
   registry.defineExtensionPoint(GENERATED_PACKAGE_POINT);
   registry.defineExtensionPoint(DYNAMIC_PACKAGE_POINT);
   registry.defineExtensionPoint(FACTORY_OVERRIDE_POINT);

@@ -6,12 +6,12 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EDataType } from '../EDataType';
-import { EPackage } from '../EPackage';
-import { EClass } from '../EClass';
-import { BasicEObject } from './BasicEObject';
-import { EAnnotation } from '../EAnnotation';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
+import { EDataType } from '../EDataType.js';
+import { EPackage } from '../EPackage.js';
+import { EClass } from '../EClass.js';
+import { BasicEObject } from './BasicEObject.js';
+import { EAnnotation } from '../EAnnotation.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 
 /**
  * Basic EDataType implementation
@@ -151,7 +151,7 @@ export class BasicEDataType extends BasicEObject implements EDataType {
   /**
    * Override eGet to handle datatype-specific features
    */
-  override eGet(feature: import('../EStructuralFeature').EStructuralFeature): any {
+  override eGet(feature: import('../EStructuralFeature.js').EStructuralFeature): any {
     const featureName = feature.getName();
     switch (featureName) {
       case 'name':
@@ -170,7 +170,7 @@ export class BasicEDataType extends BasicEObject implements EDataType {
   /**
    * Override eSet to handle datatype-specific features
    */
-  override eSet(feature: import('../EStructuralFeature').EStructuralFeature, newValue: any): void {
+  override eSet(feature: import('../EStructuralFeature.js').EStructuralFeature, newValue: any): void {
     const featureName = feature.getName();
     switch (featureName) {
       case 'name':

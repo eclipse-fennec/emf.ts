@@ -6,16 +6,16 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { Resource } from '../Resource';
+import { Resource } from '../Resource.js';
 
 // Resource implementation
-export { JSONResource, JSONResourceFactory } from './JSONResource';
+export { JSONResource, JSONResourceFactory } from './JSONResource.js';
 
 // Save/Load
-export { JSONSave, OPTION_SERIALIZE_TYPE, OPTION_INDENT, SERIALIZE_TYPE_ALWAYS, SERIALIZE_TYPE_POLYMORPHIC } from './JSONSave';
-export { JSONLoad } from './JSONLoad';
+export { JSONSave, OPTION_SERIALIZE_TYPE, OPTION_INDENT, SERIALIZE_TYPE_ALWAYS, SERIALIZE_TYPE_POLYMORPHIC } from './JSONSave.js';
+export { JSONLoad } from './JSONLoad.js';
 
-import { JSONResourceFactory } from './JSONResource';
+import { JSONResourceFactory } from './JSONResource.js';
 
 // Auto-register .json extension factory
 const extensionMap = Resource.INSTANCE_FACTORY_REGISTRY.getExtensionToFactoryMap();
