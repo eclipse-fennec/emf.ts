@@ -30,6 +30,10 @@
     "ecore",
     "typescript"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eclipse-fennec/emf.ts"
+  },
   "author": "",
   "license": "EPL-2.0",
   "devDependencies": {
