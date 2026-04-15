@@ -16,6 +16,11 @@ import { EStructuralFeature } from '../EStructuralFeature';
 import { EReference } from '../EReference';
 import { Resource } from '../Resource';
 import { URI } from '../URI';
+/**
+ * Option key for feature name mapping.
+ * Value: Map<string, string> where key = feature name, value = XML name
+ */
+export const OPTION_FEATURE_NAME_MAP = 'FEATURE_NAME_MAP';
 
 /**
  * Feature kind constants for loading
@@ -71,6 +76,7 @@ export interface XMLHelper {
   getFeature(eClass: EClass, namespaceURI: string | null, name: string): EStructuralFeature | null;
   getFeatureWithElement(eClass: EClass, namespaceURI: string | null, name: string, isElement: boolean): EStructuralFeature | null;
   getFeatureKind(feature: EStructuralFeature): number;
+  getSerializedFeatureName(feature: EStructuralFeature): string;
   setValue(eObject: EObject, feature: EStructuralFeature, value: any, position: number): void;
 
   // Reference handling
@@ -147,6 +153,10 @@ export class XMLHelperImpl implements XMLHelper {
   protected namespaceSupport: NamespaceSupport = new NamespaceSupport();
   protected allPrefixToURI: string[] = [];
 
+  // Feature name mapping: featureName -> xmlName and xmlName -> featureName
+  protected featureNameMap: Map<string, string> = new Map();
+  protected reverseFeatureNameMap: Map<string, string> = new Map();
+
   constructor(resource?: Resource) {
     if (resource) {
       this.setResource(resource);
@@ -167,7 +177,14 @@ export class XMLHelperImpl implements XMLHelper {
   }
 
   setOptions(options: Map<string, any>): void {
-    // Process options if needed
+    const nameMap = options.get(OPTION_FEATURE_NAME_MAP) as Map<string, string> | undefined;
+    if (nameMap) {
+      this.featureNameMap = new Map(nameMap);
+      this.reverseFeatureNameMap = new Map();
+      for (const [featureName, xmlName] of nameMap) {
+        this.reverseFeatureNameMap.set(xmlName, featureName);
+      }
+    }
   }
 
   setNoNamespacePackage(pkg: EPackage | null): void {
@@ -284,7 +301,14 @@ export class XMLHelperImpl implements XMLHelper {
   }
 
   getFeature(eClass: EClass, namespaceURI: string | null, name: string): EStructuralFeature | null {
-    const feature = eClass.getEStructuralFeature(name);
+    let feature = eClass.getEStructuralFeature(name);
+    if (!feature && this.reverseFeatureNameMap.size > 0) {
+      // Try reverse lookup: XML name -> feature name
+      const featureName = this.reverseFeatureNameMap.get(name);
+      if (featureName) {
+        feature = eClass.getEStructuralFeature(featureName);
+      }
+    }
     if (feature) {
       this.computeFeatureKind(feature);
     }
@@ -293,6 +317,17 @@ export class XMLHelperImpl implements XMLHelper {
 
   getFeatureWithElement(eClass: EClass, namespaceURI: string | null, name: string, isElement: boolean): EStructuralFeature | null {
     return this.getFeature(eClass, namespaceURI, name);
+  }
+
+  getSerializedFeatureName(feature: EStructuralFeature): string {
+    const name = feature.getName() || '';
+    if (this.featureNameMap.size > 0) {
+      const mapped = this.featureNameMap.get(name);
+      if (mapped !== undefined) {
+        return mapped;
+      }
+    }
+    return name;
   }
 
   getFeatureKind(feature: EStructuralFeature): number {

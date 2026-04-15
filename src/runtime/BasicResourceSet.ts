@@ -116,6 +116,32 @@ export class BasicResourceSet implements ResourceSet {
     return resource;
   }
 
+  /**
+   * Async version of getResource that awaits resource.load().
+   * Uses URIConverter.createInputStream() for loading.
+   */
+  async getResourceAsync(uri: URI, loadOnDemand: boolean): Promise<Resource | null> {
+    // 1. Already loaded? (sync)
+    const existing = this.resources.find(r => {
+      const resUri = r.getURI();
+      return resUri && resUri.toString() === uri.toString();
+    });
+    if (existing) return existing;
+
+    // 2. Package Registry? (sync)
+    const delegated = this.delegatedGetResource(uri, loadOnDemand);
+    if (delegated) return delegated;
+
+    if (!loadOnDemand) return null;
+
+    // 3. Create + AWAIT load (async via URIConverter)
+    const resource = this.createResource(uri);
+    if (resource) {
+      await resource.load();
+    }
+    return resource;
+  }
+
   createResource(uri: URI): Resource {
     // Get factory for this URI
     const factory = this.resourceFactoryRegistry.getFactory(uri);
@@ -179,6 +205,100 @@ export class BasicResourceSet implements ResourceSet {
 
   setURIConverter(converter: URIConverter): void {
     this.uriConverter = converter;
+  }
+
+  /**
+   * Iteratively resolves proxy references by loading packages via getResourceAsync.
+   * Loops until no more progress is made or maxDepth is reached.
+   */
+  async resolveProxiesAsync(maxDepth: number = -1): Promise<number> {
+    let totalResolved = 0;
+    let progress = true;
+    let depth = 0;
+
+    while (progress) {
+      if (maxDepth >= 0 && depth >= maxDepth) break;
+      progress = false;
+      const proxyNsURIs = this.collectUnresolvedNsURIs();
+      if (proxyNsURIs.size === 0) break;
+
+      for (const nsURI of proxyNsURIs) {
+        try {
+          const uri = URI.createURI(nsURI);
+          const resource = await this.getResourceAsync(uri, true);
+          if (resource?.isLoaded()) {
+            totalResolved++;
+            progress = true;
+          }
+        } catch (err) {
+          // Provider unavailable, continue with next
+          console.warn(`[resolveProxiesAsync] Failed to resolve ${nsURI}:`, err);
+        }
+      }
+      depth++;
+    }
+    return totalResolved;
+  }
+
+  /**
+   * Collects nsURIs from unresolved proxy references across all resources.
+   */
+  private collectUnresolvedNsURIs(): Set<string> {
+    const nsURIs = new Set<string>();
+    for (const resource of this.resources) {
+      for (const content of resource.getContents()) {
+        this.collectProxyURIs(content, nsURIs);
+      }
+    }
+    return nsURIs;
+  }
+
+  /**
+   * Recursively walks EObject tree and collects nsURIs from proxy references.
+   */
+  private collectProxyURIs(obj: EObject, nsURIs: Set<string>): void {
+    const eClass = obj.eClass();
+    if (!eClass) return;
+
+    // Check all references
+    for (const ref of eClass.getEAllReferences()) {
+      try {
+        const value = obj.eGet(ref);
+        if (!value) continue;
+
+        if (ref.isMany() && Array.isArray(value)) {
+          for (const item of value) {
+            this.checkProxy(item, nsURIs);
+          }
+        } else if (typeof value === 'object' && 'eClass' in value) {
+          this.checkProxy(value as EObject, nsURIs);
+        }
+      } catch {
+        // skip inaccessible references
+      }
+    }
+
+    // Recurse into containments
+    for (const child of obj.eContents()) {
+      this.collectProxyURIs(child, nsURIs);
+    }
+  }
+
+  /**
+   * Checks if an EObject is a proxy and extracts the nsURI.
+   */
+  private checkProxy(obj: EObject, nsURIs: Set<string>): void {
+    if (typeof (obj as any).eIsProxy === 'function' && (obj as any).eIsProxy()) {
+      const proxyURI = (obj as any).eProxyURI?.();
+      if (proxyURI) {
+        // Extract base URI (without fragment) as the nsURI
+        const uriStr = typeof proxyURI === 'string' ? proxyURI : proxyURI.toString();
+        const baseUri = uriStr.split('#')[0];
+        if (baseUri && !this.packageRegistry.has(baseUri)) {
+          nsURIs.add(baseUri);
+        }
+      }
+    }
   }
 
   /**

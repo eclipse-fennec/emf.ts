@@ -36,6 +36,10 @@ export class BasicEFactory implements EFactory {
 
   setEPackage(value: EPackage): void {
     this.ePackage = value;
+    // Establish bidirectional reference so the package knows its factory
+    if (value && typeof value.setEFactoryInstance === 'function') {
+      value.setEFactoryInstance(this);
+    }
   }
 
   create(eClass: EClass): EObject {
