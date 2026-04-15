@@ -7,9 +7,9 @@
  */
 
 import sax from 'sax';
-import { Resource } from '../Resource';
-import { XMLHelper, XMLHelperImpl } from './XMLHelper';
-import { XMLHandler, AttributesImpl, XML_NS } from './XMLHandler';
+import { Resource } from '../Resource.js';
+import { XMLHelper, XMLHelperImpl } from './XMLHelper.js';
+import { XMLHandler, AttributesImpl, XML_NS } from './XMLHandler.js';
 
 /**
  * XMLLoad - sets up SAX parser and invokes handler
@@ -187,4 +187,4 @@ export class XMIHandler extends XMLHandler {
 }
 
 // Need to import EObject for the XMIHandler
-import { EObject } from '../EObject';
+import { EObject } from '../EObject.js';

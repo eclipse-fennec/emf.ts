@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { Resource } from '../Resource';
+import { Resource } from '../Resource.js';
 
 // Resource implementations
 export {
@@ -19,9 +19,9 @@ export {
   OPTION_USE_DEPRECATED_METHODS,
   OPTION_RECORD_UNKNOWN_FEATURE,
   OPTION_EXTENDED_META_DATA
-} from './XMLResource';
+} from './XMLResource.js';
 
-import { XMLResourceFactory, XMIResourceFactory } from './XMLResource';
+import { XMLResourceFactory, XMIResourceFactory } from './XMLResource.js';
 
 // Auto-register XML/XMI factories for common extensions
 const extensionMap = Resource.INSTANCE_FACTORY_REGISTRY.getExtensionToFactoryMap();
@@ -36,13 +36,13 @@ if (!extensionMap.has('ecore')) {
 }
 
 // XML Loading
-export { XMLLoad, XMILoad, XMIHelperImpl, XMIHandler } from './XMLLoad';
+export { XMLLoad, XMILoad, XMIHelperImpl, XMIHandler } from './XMLLoad.js';
 
 // XML Saving
-export { XMLSave, XMISave } from './XMLSave';
+export { XMLSave, XMISave } from './XMLSave.js';
 
 // XML Handler
-export type { Attributes } from './XMLHandler';
+export type { Attributes } from './XMLHandler.js';
 export {
   XMLHandler,
   AttributesImpl,
@@ -59,7 +59,7 @@ export {
   ERROR_TYPE,
   OBJECT_TYPE,
   UNKNOWN_FEATURE_TYPE
-} from './XMLHandler';
+} from './XMLHandler.js';
 
 // XML Helper
 export {
@@ -72,4 +72,4 @@ export {
   IS_MANY_MOVE,
   OTHER,
   OPTION_FEATURE_NAME_MAP
-} from './XMLHelper';
+} from './XMLHelper.js';

@@ -6,9 +6,9 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EStructuralFeature } from './EStructuralFeature';
-import { EClass } from './EClass';
-import { EAttribute } from './EAttribute';
+import { EStructuralFeature } from './EStructuralFeature.js';
+import { EClass } from './EClass.js';
+import { EAttribute } from './EAttribute.js';
 
 /**
  * A representation of the model object 'EReference'.

@@ -6,8 +6,8 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { ENamedElement } from './ENamedElement';
-import { EGenericType } from './EGenericType';
+import { ENamedElement } from './ENamedElement.js';
+import { EGenericType } from './EGenericType.js';
 
 /**
  * A representation of the model object 'EType Parameter'.

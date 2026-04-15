@@ -6,8 +6,8 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { Notification } from './Notification';
-import { Notifier } from './Notifier';
+import { Notification } from './Notification.js';
+import { Notifier } from './Notifier.js';
 
 /**
  * A receiver of notifications.

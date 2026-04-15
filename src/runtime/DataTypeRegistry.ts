@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EDataType } from '../EDataType';
+import { EDataType } from '../EDataType.js';
 
 /**
  * Converter interface for DataType serialization/deserialization

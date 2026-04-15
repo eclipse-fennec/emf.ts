@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EModelElement } from './EModelElement';
+import { EModelElement } from './EModelElement.js';
 
 /**
  * A representation of the model object 'ENamed Element'.

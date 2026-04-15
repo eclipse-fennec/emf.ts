@@ -6,12 +6,12 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { BasicResource } from '../runtime/BasicResource';
-import { URI } from '../URI';
-import { EObject } from '../EObject';
-import { XMLLoad, XMILoad } from './XMLLoad';
-import { XMLSave, XMISave } from './XMLSave';
-import { XMLHelperImpl } from './XMLHelper';
+import { BasicResource } from '../runtime/BasicResource.js';
+import { URI } from '../URI.js';
+import { EObject } from '../EObject.js';
+import { XMLLoad, XMILoad } from './XMLLoad.js';
+import { XMLSave, XMISave } from './XMLSave.js';
+import { XMLHelperImpl } from './XMLHelper.js';
 
 /**
  * Resource load options
@@ -21,7 +21,7 @@ export const OPTION_DEFER_IDREF_RESOLUTION = 'DEFER_IDREF_RESOLUTION';
 export const OPTION_USE_DEPRECATED_METHODS = 'USE_DEPRECATED_METHODS';
 export const OPTION_RECORD_UNKNOWN_FEATURE = 'RECORD_UNKNOWN_FEATURE';
 export const OPTION_EXTENDED_META_DATA = 'EXTENDED_META_DATA';
-export { OPTION_FEATURE_NAME_MAP } from './XMLHelper';
+export { OPTION_FEATURE_NAME_MAP } from './XMLHelper.js';
 
 /**
  * XMLResource - A resource that loads/saves in XML format
@@ -187,7 +187,7 @@ async function streamToString(stream: ReadableStream): Promise<string> {
   return result;
 }
 
-import { Resource } from '../Resource';
+import { Resource } from '../Resource.js';
 
 /**
  * XMLResource.Factory - Factory for creating XML resources

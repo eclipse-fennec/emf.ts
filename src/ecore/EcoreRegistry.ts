@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import type { EClass } from '../EClass';
+import type { EClass } from '../EClass.js';
 
 /**
  * Registry for Ecore package classes

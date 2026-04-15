@@ -6,8 +6,8 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { ENamedElement } from './ENamedElement';
-import { EEnum } from './EEnum';
+import { ENamedElement } from './ENamedElement.js';
+import { EEnum } from './EEnum.js';
 
 /**
  * A representation of the model object 'EEnum Literal'.

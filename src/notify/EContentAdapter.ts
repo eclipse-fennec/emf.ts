@@ -6,13 +6,13 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { Adapter, AdapterInternal, AdapterImpl } from './Adapter';
-import { Notification, NotificationType } from './Notification';
-import { Notifier } from './Notifier';
-import { EObject } from '../EObject';
-import { EReference } from '../EReference';
-import { Resource } from '../Resource';
-import { ResourceSet } from '../ResourceSet';
+import { Adapter, AdapterInternal, AdapterImpl } from './Adapter.js';
+import { Notification, NotificationType } from './Notification.js';
+import { Notifier } from './Notifier.js';
+import { EObject } from '../EObject.js';
+import { EReference } from '../EReference.js';
+import { Resource } from '../Resource.js';
+import { ResourceSet } from '../ResourceSet.js';
 
 /**
  * An adapter that maintains itself as an adapter for all contained objects

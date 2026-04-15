@@ -6,11 +6,11 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EModelElement } from './EModelElement';
-import { EPackage } from './EPackage';
-import { EClass } from './EClass';
-import { EObject } from './EObject';
-import { EDataType } from './EDataType';
+import { EModelElement } from './EModelElement.js';
+import { EPackage } from './EPackage.js';
+import { EClass } from './EClass.js';
+import { EObject } from './EObject.js';
+import { EDataType } from './EDataType.js';
 
 /**
  * A representation of the model object 'EFactory'.

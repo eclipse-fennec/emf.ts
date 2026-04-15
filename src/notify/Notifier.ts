@@ -6,8 +6,8 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { Adapter, isAdapterInternal } from './Adapter';
-import { Notification, NotificationImpl, NotificationType } from './Notification';
+import { Adapter, isAdapterInternal } from './Adapter.js';
+import { Notification, NotificationImpl, NotificationType } from './Notification.js';
 
 /**
  * A source of notification delivery.

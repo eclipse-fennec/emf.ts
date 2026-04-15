@@ -6,15 +6,15 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EAnnotation } from '../EAnnotation';
-import { EModelElement } from '../EModelElement';
-import { EObject } from '../EObject';
-import { EClass } from '../EClass';
-import { EReference } from '../EReference';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { BasicEObject } from './BasicEObject';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
-import { EMap, createEMap } from '../EMap';
+import { EAnnotation } from '../EAnnotation.js';
+import { EModelElement } from '../EModelElement.js';
+import { EObject } from '../EObject.js';
+import { EClass } from '../EClass.js';
+import { EReference } from '../EReference.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { BasicEObject } from './BasicEObject.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EMap, createEMap } from '../EMap.js';
 
 /**
  * Basic EAnnotation implementation

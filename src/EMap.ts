@@ -6,12 +6,12 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from './EObject';
-import { EClass } from './EClass';
-import { EStructuralFeature } from './EStructuralFeature';
-import { EReference } from './EReference';
-import { EList, EObjectContainmentEList, BasicEList } from './EList';
-import { DynamicEObject } from './runtime/BasicEObject';
+import { EObject } from './EObject.js';
+import { EClass } from './EClass.js';
+import { EStructuralFeature } from './EStructuralFeature.js';
+import { EReference } from './EReference.js';
+import { EList, EObjectContainmentEList, BasicEList } from './EList.js';
+import { DynamicEObject } from './runtime/BasicEObject.js';
 
 /**
  * EMap interface - A map backed by an EList of entry EObjects.

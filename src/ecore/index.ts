@@ -7,49 +7,49 @@
  */
 
 // Re-export core types
-export * from '../EObject';
-export * from '../EClass';
-export * from '../EClassifier';
-export * from '../EDataType';
-export * from '../EAttribute';
-export * from '../EReference';
-export * from '../EStructuralFeature';
-export * from '../EPackage';
-export * from '../EFactory';
-export * from '../EOperation';
-export * from '../EParameter';
-export * from '../EAnnotation';
-export * from '../Resource';
-export * from '../ResourceSet';
-export * from '../URI';
+export * from '../EObject.js';
+export * from '../EClass.js';
+export * from '../EClassifier.js';
+export * from '../EDataType.js';
+export * from '../EAttribute.js';
+export * from '../EReference.js';
+export * from '../EStructuralFeature.js';
+export * from '../EPackage.js';
+export * from '../EFactory.js';
+export * from '../EOperation.js';
+export * from '../EParameter.js';
+export * from '../EAnnotation.js';
+export * from '../Resource.js';
+export * from '../ResourceSet.js';
+export * from '../URI.js';
 
 // Re-export runtime implementations
-export * from '../runtime/BasicEObject';
-export * from '../runtime/BasicEClass';
-export * from '../runtime/BasicEPackage';
-export * from '../runtime/BasicEFactory';
-export * from '../runtime/BasicEAttribute';
-export * from '../runtime/BasicEReference';
-export * from '../runtime/BasicEDataType';
-export * from '../runtime/BasicResource';
-export * from '../runtime/BasicResourceSet';
+export * from '../runtime/BasicEObject.js';
+export * from '../runtime/BasicEClass.js';
+export * from '../runtime/BasicEPackage.js';
+export * from '../runtime/BasicEFactory.js';
+export * from '../runtime/BasicEAttribute.js';
+export * from '../runtime/BasicEReference.js';
+export * from '../runtime/BasicEDataType.js';
+export * from '../runtime/BasicResource.js';
+export * from '../runtime/BasicResourceSet.js';
 
 // Re-export XMI
-export * from '../xmi';
+export * from '../xmi/index.js';
 
 // Re-export type guards
-export * from '../util/TypeGuards';
+export * from '../util/TypeGuards.js';
 
 // Export EcorePackage
-export * from './EcorePackage';
+export * from './EcorePackage.js';
 
 // Compatibility aliases for @masagroup/ecore
-import { BasicResourceSet } from '../runtime/BasicResourceSet';
-import { XMIResource, XMIResourceFactory } from '../xmi/XMLResource';
-import { URI } from '../URI';
-import { EPackage, EPackageRegistry } from '../EPackage';
-import { Resource } from '../Resource';
-import { getEcorePackage, ECORE_NS_URI } from './EcorePackage';
+import { BasicResourceSet } from '../runtime/BasicResourceSet.js';
+import { XMIResource, XMIResourceFactory } from '../xmi/XMLResource.js';
+import { URI } from '../URI.js';
+import { EPackage, EPackageRegistry } from '../EPackage.js';
+import { Resource } from '../Resource.js';
+import { getEcorePackage, ECORE_NS_URI } from './EcorePackage.js';
 
 // Auto-initialize Ecore package on import
 // This ensures the Ecore package is registered in the global registry

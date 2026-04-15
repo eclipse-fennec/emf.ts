@@ -6,19 +6,19 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-export * from './BasicEObject';
-export * from './BasicEPackage';
-export * from './BasicEClass';
-export * from './BasicEFactory';
-export * from './BasicResource';
-export * from './BasicResourceSet';
-export * from './BasicEStructuralFeature';
-export * from './BasicEAttribute';
-export * from './BasicEReference';
-export * from './BasicEDataType';
-export * from './BasicEEnum';
-export * from './BasicEEnumLiteral';
-export * from './BasicEAnnotation';
-export * from './BasicEOperation';
-export * from './DataTypeRegistry';
-export * from './EProxyImpl';
+export * from './BasicEObject.js';
+export * from './BasicEPackage.js';
+export * from './BasicEClass.js';
+export * from './BasicEFactory.js';
+export * from './BasicResource.js';
+export * from './BasicResourceSet.js';
+export * from './BasicEStructuralFeature.js';
+export * from './BasicEAttribute.js';
+export * from './BasicEReference.js';
+export * from './BasicEDataType.js';
+export * from './BasicEEnum.js';
+export * from './BasicEEnumLiteral.js';
+export * from './BasicEAnnotation.js';
+export * from './BasicEOperation.js';
+export * from './DataTypeRegistry.js';
+export * from './EProxyImpl.js';

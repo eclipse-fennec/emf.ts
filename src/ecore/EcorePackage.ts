@@ -6,24 +6,24 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EPackage, EPackageRegistry } from '../EPackage';
-import { EClass } from '../EClass';
-import { EAttribute } from '../EAttribute';
-import { EReference } from '../EReference';
-import { EDataType } from '../EDataType';
-import { EFactory } from '../EFactory';
-import { EClassifier } from '../EClassifier';
-import { EObject } from '../EObject';
-import { BasicEPackage } from '../runtime/BasicEPackage';
-import { BasicEClass } from '../runtime/BasicEClass';
-import { BasicEAttribute } from '../runtime/BasicEAttribute';
-import { BasicEReference } from '../runtime/BasicEReference';
-import { BasicEDataType } from '../runtime/BasicEDataType';
-import { BasicEFactory } from '../runtime/BasicEFactory';
-import { BasicEAnnotation } from '../runtime/BasicEAnnotation';
-import { BasicEEnum } from '../runtime/BasicEEnum';
-import { BasicEEnumLiteral } from '../runtime/BasicEEnumLiteral';
-import { ecoreRegistry } from './EcoreRegistry';
+import { EPackage, EPackageRegistry } from '../EPackage.js';
+import { EClass } from '../EClass.js';
+import { EAttribute } from '../EAttribute.js';
+import { EReference } from '../EReference.js';
+import { EDataType } from '../EDataType.js';
+import { EFactory } from '../EFactory.js';
+import { EClassifier } from '../EClassifier.js';
+import { EObject } from '../EObject.js';
+import { BasicEPackage } from '../runtime/BasicEPackage.js';
+import { BasicEClass } from '../runtime/BasicEClass.js';
+import { BasicEAttribute } from '../runtime/BasicEAttribute.js';
+import { BasicEReference } from '../runtime/BasicEReference.js';
+import { BasicEDataType } from '../runtime/BasicEDataType.js';
+import { BasicEFactory } from '../runtime/BasicEFactory.js';
+import { BasicEAnnotation } from '../runtime/BasicEAnnotation.js';
+import { BasicEEnum } from '../runtime/BasicEEnum.js';
+import { BasicEEnumLiteral } from '../runtime/BasicEEnumLiteral.js';
+import { ecoreRegistry } from './EcoreRegistry.js';
 
 /**
  * Ecore namespace URI

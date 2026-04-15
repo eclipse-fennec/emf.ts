@@ -6,12 +6,12 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EStructuralFeature } from '../EStructuralFeature';
-import { EClassifier } from '../EClassifier';
-import { EClass } from '../EClass';
-import { BasicEObject } from './BasicEObject';
-import { EAnnotation } from '../EAnnotation';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EClassifier } from '../EClassifier.js';
+import { EClass } from '../EClass.js';
+import { BasicEObject } from './BasicEObject.js';
+import { EAnnotation } from '../EAnnotation.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 
 /**
  * Abstract base class for EAttribute and EReference

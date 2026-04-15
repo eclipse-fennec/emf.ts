@@ -6,13 +6,13 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EOperation } from '../EOperation';
-import { EClass } from '../EClass';
-import { EClassifier } from '../EClassifier';
-import { EParameter } from '../EParameter';
-import { BasicEObject } from './BasicEObject';
-import { EAnnotation } from '../EAnnotation';
-import { ecoreRegistry } from '../ecore/EcoreRegistry';
+import { EOperation } from '../EOperation.js';
+import { EClass } from '../EClass.js';
+import { EClassifier } from '../EClassifier.js';
+import { EParameter } from '../EParameter.js';
+import { BasicEObject } from './BasicEObject.js';
+import { EAnnotation } from '../EAnnotation.js';
+import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 
 /**
  * Basic EOperation implementation

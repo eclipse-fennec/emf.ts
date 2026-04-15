@@ -6,19 +6,19 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from '../EObject';
-import { EClass } from '../EClass';
-import { EClassifier } from '../EClassifier';
-import { EStructuralFeature } from '../EStructuralFeature';
-import { EReference } from '../EReference';
-import { EAttribute } from '../EAttribute';
-import { EDataType } from '../EDataType';
-import { EFactory } from '../EFactory';
-import { EPackage, EPackageRegistry } from '../EPackage';
-import { Resource } from '../Resource';
-import { URI } from '../URI';
-import { isEList } from '../EList';
-import { EProxyImpl } from '../runtime/EProxyImpl';
+import { EObject } from '../EObject.js';
+import { EClass } from '../EClass.js';
+import { EClassifier } from '../EClassifier.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EReference } from '../EReference.js';
+import { EAttribute } from '../EAttribute.js';
+import { EDataType } from '../EDataType.js';
+import { EFactory } from '../EFactory.js';
+import { EPackage, EPackageRegistry } from '../EPackage.js';
+import { Resource } from '../Resource.js';
+import { URI } from '../URI.js';
+import { isEList } from '../EList.js';
+import { EProxyImpl } from '../runtime/EProxyImpl.js';
 
 /**
  * Forward reference to be resolved after loading.

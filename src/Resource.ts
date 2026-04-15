@@ -6,10 +6,10 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EObject } from './EObject';
-import { ResourceSet } from './ResourceSet';
-import { URI } from './URI';
-import { EList } from './EList';
+import { EObject } from './EObject.js';
+import { ResourceSet } from './ResourceSet.js';
+import { URI } from './URI.js';
+import { EList } from './EList.js';
 
 /**
  * A persistent document. A resource is typically contained by a resource set.

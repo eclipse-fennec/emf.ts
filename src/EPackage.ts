@@ -6,10 +6,10 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { ENamedElement } from './ENamedElement';
-import { EClassifier } from './EClassifier';
-import { EFactory } from './EFactory';
-import type { EList } from './EList';
+import { ENamedElement } from './ENamedElement.js';
+import { EClassifier } from './EClassifier.js';
+import { EFactory } from './EFactory.js';
+import type { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EPackage'.
