@@ -304,7 +304,7 @@ export class XMLSave {
       if (fragment) {
         // Same resource: use fragment-only reference
         if (resource === this.resource) {
-          return `/${fragment}`;
+          return fragment.startsWith('/') ? fragment : `/${fragment}`;
         }
         // Different resource: use full URI
         const uri = resource.getURI();
