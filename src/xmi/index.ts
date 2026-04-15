@@ -70,5 +70,6 @@ export {
   DATATYPE_IS_MANY,
   IS_MANY_ADD,
   IS_MANY_MOVE,
-  OTHER
+  OTHER,
+  OPTION_FEATURE_NAME_MAP
 } from './XMLHelper';

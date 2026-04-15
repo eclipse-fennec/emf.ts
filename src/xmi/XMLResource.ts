@@ -21,6 +21,7 @@ export const OPTION_DEFER_IDREF_RESOLUTION = 'DEFER_IDREF_RESOLUTION';
 export const OPTION_USE_DEPRECATED_METHODS = 'USE_DEPRECATED_METHODS';
 export const OPTION_RECORD_UNKNOWN_FEATURE = 'RECORD_UNKNOWN_FEATURE';
 export const OPTION_EXTENDED_META_DATA = 'EXTENDED_META_DATA';
+export { OPTION_FEATURE_NAME_MAP } from './XMLHelper';
 
 /**
  * XMLResource - A resource that loads/saves in XML format
@@ -93,6 +94,28 @@ export class XMLResource extends BasicResource {
   }
 
   /**
+   * Load resource using URIConverter if available, otherwise no-op.
+   * For direct string loading, use loadFromString().
+   */
+  async load(options?: Map<string, any>): Promise<void> {
+    const rs = this.getResourceSet();
+    const converter = rs?.getURIConverter();
+    const uri = this.getURI();
+    if (converter && uri) {
+      try {
+        const stream = await converter.createInputStream(uri);
+        const content = await streamToString(stream);
+        this.loadFromString(content, options);
+      } catch (err) {
+        // If createInputStream fails (e.g. not implemented), just mark as loaded
+        (this as any).loaded = true;
+      }
+    } else {
+      (this as any).loaded = true;
+    }
+  }
+
+  /**
    * Load from XML string
    */
   loadFromString(xmlString: string, options?: Map<string, any>): void {
@@ -146,6 +169,22 @@ export class XMIResource extends XMLResource {
   protected override createXMLSave(): XMLSave {
     return new XMISave(this.xmlHelper);
   }
+}
+
+/**
+ * Convert a ReadableStream to a string
+ */
+async function streamToString(stream: ReadableStream): Promise<string> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let result = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    result += decoder.decode(value, { stream: true });
+  }
+  result += decoder.decode(); // flush
+  return result;
 }
 
 import { Resource } from '../Resource';

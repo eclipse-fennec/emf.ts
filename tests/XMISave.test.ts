@@ -698,4 +698,128 @@ describe('XMI Serialization', () => {
       expect(loadedPrimaryAddr).toBeDefined();
     });
   });
+
+  describe('Multiple Root Objects (xmi:XMI wrapper)', () => {
+    it('should wrap multiple root objects in xmi:XMI container', () => {
+      const resource = new XMIResource(URI.createURI('test://multi-root.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'Markus');
+
+      const address = factory.create(addressClass);
+      address.eSet(addressClass.getEStructuralFeature('street')!, 'Am Berg 1a');
+      address.eSet(addressClass.getEStructuralFeature('city')!, 'Dittmannsdorf');
+
+      resource.getContents().push(person);
+      resource.getContents().push(address);
+
+      const xml = resource.saveToString();
+      console.log('Multi-root XML:', xml);
+
+      // Should have xmi:XMI wrapper
+      expect(xml).toContain('<xmi:XMI');
+      expect(xml).toContain('</xmi:XMI>');
+      expect(xml).toContain('xmlns:xmi=');
+      expect(xml).toContain('xmlns:test="http://test.com/model"');
+
+      // Should contain both objects inside the wrapper
+      expect(xml).toContain('<test:Person');
+      expect(xml).toContain('name="Markus"');
+      expect(xml).toContain('<test:Address');
+      expect(xml).toContain('street="Am Berg 1a"');
+      expect(xml).toContain('city="Dittmannsdorf"');
+    });
+
+    it('should NOT wrap a single root object in xmi:XMI container', () => {
+      const resource = new XMIResource(URI.createURI('test://single-root.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'SingleRoot');
+
+      resource.getContents().push(person);
+
+      const xml = resource.saveToString();
+
+      // Should NOT have xmi:XMI wrapper
+      expect(xml).not.toContain('<xmi:XMI');
+      expect(xml).not.toContain('</xmi:XMI>');
+      // Root element should be the object directly
+      expect(xml).toContain('<test:Person');
+    });
+
+    it('should use internal fragment references between root objects', () => {
+      const resource = new XMIResource(URI.createURI('test://multi-ref.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+
+      // Create person with non-containment reference to address
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'Markus');
+
+      const address = factory.create(addressClass);
+      address.eSet(addressClass.getEStructuralFeature('street')!, 'Am Berg 1a');
+
+      // Both are root objects in the same resource
+      resource.getContents().push(person);
+      resource.getContents().push(address);
+
+      // Set non-containment reference from person to address (same resource)
+      person.eSet(personClass.getEStructuralFeature('primaryAddress')!, address);
+
+      const xml = resource.saveToString();
+      console.log('Multi-root with internal ref XML:', xml);
+
+      // Reference should be an internal fragment, not an external href
+      expect(xml).toContain('primaryAddress="');
+      expect(xml).not.toContain('multi-ref.xmi#');
+      // Should use path-based fragment like /1
+      expect(xml).toMatch(/primaryAddress="\/[^"]+"/);
+    });
+
+    it('should collect namespaces from all root objects', () => {
+      // Create a second package
+      const otherPackage = new BasicEPackage();
+      otherPackage.setName('other');
+      otherPackage.setNsURI('http://test.com/other');
+      otherPackage.setNsPrefix('other');
+
+      const otherFactory = new BasicEFactory();
+      otherFactory.setEPackage(otherPackage);
+      otherPackage.setEFactoryInstance(otherFactory);
+
+      const itemClass = new BasicEClass();
+      itemClass.setName('Item');
+      itemClass.setEPackage(otherPackage);
+      otherPackage.getEClassifiers().push(itemClass);
+
+      resourceSet.getPackageRegistry().set('http://test.com/other', otherPackage);
+
+      const resource = new XMIResource(URI.createURI('test://multi-ns.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const testFactory = testPackage.getEFactoryInstance();
+      const person = testFactory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'Test');
+
+      const item = otherFactory.create(itemClass);
+
+      resource.getContents().push(person);
+      resource.getContents().push(item);
+
+      const xml = resource.saveToString();
+      console.log('Multi-namespace XML:', xml);
+
+      // Wrapper should declare both namespaces
+      expect(xml).toContain('xmlns:test="http://test.com/model"');
+      expect(xml).toContain('xmlns:other="http://test.com/other"');
+      expect(xml).toContain('<test:Person');
+      expect(xml).toContain('<other:Item');
+    });
+  });
 });

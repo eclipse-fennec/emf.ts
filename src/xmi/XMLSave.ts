@@ -45,15 +45,66 @@ export class XMLSave {
     this.declaredNamespaces.clear();
     this.indent = 0;
 
+    if (options) {
+      this.helper.setOptions(options);
+    }
+
     // XML declaration
     this.output.push('<?xml version="1.0" encoding="UTF-8"?>\n');
 
     const contents = resource.getContents();
-    for (const root of contents) {
-      this.saveObject(root, true);
+
+    if (contents.length > 1) {
+      // Multiple root objects: wrap in <xmi:XMI> container per XMI 2.x spec
+      this.saveMultipleRoots(contents);
+    } else {
+      for (const root of contents) {
+        this.saveObject(root, true);
+      }
     }
 
     return this.output.join('');
+  }
+
+  /**
+   * Save multiple root objects wrapped in an <xmi:XMI> container element
+   */
+  protected saveMultipleRoots(contents: Iterable<EObject>): void {
+    // Collect all packages from all root objects
+    const allPackages = new Set<EPackage>();
+    for (const root of contents) {
+      for (const pkg of this.collectPackages(root)) {
+        allPackages.add(pkg);
+      }
+    }
+
+    // Write <xmi:XMI> opening tag with namespace declarations
+    this.output.push(`<xmi:XMI`);
+    this.output.push(` xmlns:xmi="${XMI_URI}"`);
+    this.output.push(` xmi:version="2.0"`);
+    this.output.push(` xmlns:xsi="${XSI_URI}"`);
+
+    const writtenPrefixes = new Set<string>();
+    for (const pkg of allPackages) {
+      const nsURI = pkg.getNsURI();
+      const prefix = this.getPrefix(pkg);
+      if (nsURI && prefix && !writtenPrefixes.has(prefix)) {
+        this.output.push(` xmlns:${prefix}="${nsURI}"`);
+        this.declaredNamespaces.set(nsURI, prefix);
+        writtenPrefixes.add(prefix);
+      }
+    }
+
+    this.output.push('>\n');
+    this.indent++;
+
+    // Write each root object without namespace declarations
+    for (const root of contents) {
+      this.saveObject(root, false);
+    }
+
+    this.indent--;
+    this.output.push('</xmi:XMI>\n');
   }
 
   /**
@@ -195,7 +246,7 @@ export class XMLSave {
             }
             if (value !== defaultValue) {
               const stringValue = this.convertToString(attr, value);
-              this.output.push(` ${attr.getName()}="${this.escapeXml(stringValue)}"`);
+              this.output.push(` ${this.helper.getSerializedFeatureName(attr)}="${this.escapeXml(stringValue)}"`);
             }
           }
         }
@@ -210,19 +261,20 @@ export class XMLSave {
               value = this.resolveValue(value, obj);
 
               if (value !== null && value !== undefined) {
+                const serializedRefName = this.helper.getSerializedFeatureName(ref);
                 // If value is now a string (unresolved proxy URI), use it directly
                 if (typeof value === 'string') {
-                  this.output.push(` ${ref.getName()}="${this.escapeXml(value)}"`);
+                  this.output.push(` ${serializedRefName}="${this.escapeXml(value)}"`);
                 } else if (typeof value === 'boolean') {
                   // Handle primitive boolean (shouldn't be a reference, but handle gracefully)
-                  this.output.push(` ${ref.getName()}="${value ? 'true' : 'false'}"`);
+                  this.output.push(` ${serializedRefName}="${value ? 'true' : 'false'}"`);
                 } else if (typeof value === 'number') {
                   // Handle primitive number (shouldn't be a reference, but handle gracefully)
-                  this.output.push(` ${ref.getName()}="${String(value)}"`);
+                  this.output.push(` ${serializedRefName}="${String(value)}"`);
                 } else {
                   const href = this.getHref(value as EObject);
                   if (href) {
-                    this.output.push(` ${ref.getName()}="${this.escapeXml(href)}"`);
+                    this.output.push(` ${serializedRefName}="${this.escapeXml(href)}"`);
                   }
                 }
               }
@@ -249,11 +301,16 @@ export class XMLSave {
     // Try to get URI fragment from resource
     if (resource) {
       const fragment = resource.getURIFragment(obj);
-      const uri = resource.getURI();
-      if (uri && fragment) {
-        return `${uri.toString()}#${fragment}`;
-      }
       if (fragment) {
+        // Same resource: use fragment-only reference
+        if (resource === this.resource) {
+          return `/${fragment}`;
+        }
+        // Different resource: use full URI
+        const uri = resource.getURI();
+        if (uri) {
+          return `${uri.toString()}#${fragment}`;
+        }
         return `#${fragment}`;
       }
     }
@@ -362,7 +419,7 @@ export class XMLSave {
             const href = this.getHref(refObj as EObject);
             if (href) {
               this.writeIndent();
-              this.output.push(`<${ref.getName()} href="${this.escapeXml(href)}"/>\n`);
+              this.output.push(`<${this.helper.getSerializedFeatureName(ref)} href="${this.escapeXml(href)}"/>\n`);
             }
           }
         }
@@ -374,7 +431,7 @@ export class XMLSave {
    * Write a single element
    */
   protected writeElement(feature: EReference, value: EObject): void {
-    const featureName = feature.getName() || 'element';
+    const featureName = this.helper.getSerializedFeatureName(feature) || 'element';
 
     this.writeIndent();
     this.output.push(`<${featureName}`);
