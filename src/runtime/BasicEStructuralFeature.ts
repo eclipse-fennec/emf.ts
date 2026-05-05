@@ -12,6 +12,8 @@ import { EClass } from '../EClass.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EPackageRegistry } from '../EPackage.js';
+import { isInternalEObject } from '../InternalEObject.js';
 
 /**
  * Abstract base class for EAttribute and EReference
@@ -90,6 +92,35 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
   }
 
   getEType(): EClassifier | null {
+    if (this.eType && isInternalEObject(this.eType) && (this.eType as any).eIsProxy()) {
+      const proxy = this.eType as any;
+      const proxyURI = proxy.eProxyURI();
+      if (proxyURI) {
+        // Try to resolve through ResourceSet (via container chain)
+        const resolved = this.eResolveProxy(proxy);
+        if (resolved !== proxy) {
+          this.eType = resolved as unknown as EClassifier;
+          return this.eType;
+        }
+
+        // Fallback: resolve directly via global package registry
+        const uriStr = proxyURI.toString();
+        const hashIndex = uriStr.indexOf('#');
+        if (hashIndex > 0) {
+          const nsURI = uriStr.substring(0, hashIndex);
+          const fragment = uriStr.substring(hashIndex + 1);
+          const pkg = EPackageRegistry.INSTANCE.getEPackage(nsURI);
+          if (pkg) {
+            const className = fragment.replace(/^\/+/, '');
+            const classifier = pkg.getEClassifier(className);
+            if (classifier) {
+              this.eType = classifier;
+              return this.eType;
+            }
+          }
+        }
+      }
+    }
     return this.eType;
   }
 

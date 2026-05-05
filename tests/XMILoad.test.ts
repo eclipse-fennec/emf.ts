@@ -33,6 +33,7 @@ import { XMIResource } from '../src/xmi/XMLResource';
 import { URI } from '../src/URI';
 import { BasicResourceSet } from '../src/runtime/BasicResourceSet';
 import { getEcorePackage, ECORE_NS_URI } from '../src/ecore/EcorePackage';
+import { EPackageRegistry } from '../src/EPackage';
 
 /**
  * @description XMI Loading mit verschachtelten Elementen
@@ -508,5 +509,159 @@ describe('XMI Loading with Nested Elements', () => {
 
     // Verify it's the actual class, not a proxy
     expect(typeof eType.eIsProxy !== 'function' || !eType.eIsProxy()).toBe(true);
+  });
+
+  it('should resolve cross-package EReference eType via EPackageRegistry (fixes #13)', () => {
+    // This tests the fix for GitHub Issue #13:
+    // When loading multiple .ecore metamodels that reference each other,
+    // cross-package eType references should resolve through EPackageRegistry.
+
+    // Step 1: Define and load the "base" package (e.g. CWM relational)
+    const baseEcoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="relational"
+    nsURI="http://example.com/relational" nsPrefix="relational">
+  <eClassifiers xsi:type="ecore:EClass" name="Table">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="Column">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+    const baseUri = URI.createURI('test://relational.ecore');
+    const baseResource = new XMIResource(baseUri);
+    baseResource.setResourceSet(resourceSet);
+    baseResource.loadFromString(baseEcoreXML);
+
+    expect(baseResource.getErrors().length).toBe(0);
+
+    // Step 2: Register the base package in the registry
+    const basePkg = baseResource.getContents()[0] as any;
+    expect(basePkg.getName()).toBe('relational');
+    resourceSet.getPackageRegistry().set('http://example.com/relational', basePkg);
+    EPackageRegistry.INSTANCE.set('http://example.com/relational', basePkg);
+
+    // Step 3: Load the "dependent" package that references the base package
+    const dependentEcoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="mapping"
+    nsURI="http://example.com/mapping" nsPrefix="mapping">
+  <eClassifiers xsi:type="ecore:EClass" name="TableSource">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="table"
+        eType="ecore:EClass http://example.com/relational#//Table"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="columns" upperBound="-1"
+        eType="ecore:EClass http://example.com/relational#//Column"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+    const depUri = URI.createURI('test://mapping.ecore');
+    const depResource = new XMIResource(depUri);
+    depResource.setResourceSet(resourceSet);
+    depResource.loadFromString(dependentEcoreXML);
+
+    const depErrors = depResource.getErrors();
+    if (depErrors.length > 0) {
+      console.log('Errors:', depErrors.map(e => e.message));
+    }
+    expect(depErrors.length).toBe(0);
+
+    // Step 4: Verify cross-package eType resolution
+    const mappingPkg = depResource.getContents()[0] as any;
+    const tableSourceClass = mappingPkg.getEClassifiers()[0] as any;
+    expect(tableSourceClass.getName()).toBe('TableSource');
+
+    // The 'table' reference should resolve to the Table EClass from the relational package
+    const tableRef = tableSourceClass.getEStructuralFeatures()[0] as any;
+    expect(tableRef.getName()).toBe('table');
+
+    const tableType = tableRef.getEType();
+    expect(tableType).not.toBeNull();
+    expect(tableType.getName()).toBe('Table');
+
+    // It must be an EClass (has getESuperTypes), not a generic EClassifier proxy
+    expect('getESuperTypes' in tableType).toBe(true);
+    expect('getEStructuralFeatures' in tableType).toBe(true);
+
+    // getEReferenceType() must not throw
+    const refType = tableRef.getEReferenceType();
+    expect(refType).not.toBeNull();
+    expect(refType.getName()).toBe('Table');
+
+    // Verify multi-valued cross-package reference too
+    const columnsRef = tableSourceClass.getEStructuralFeatures()[1] as any;
+    expect(columnsRef.getName()).toBe('columns');
+
+    const columnType = columnsRef.getEType();
+    expect(columnType).not.toBeNull();
+    expect(columnType.getName()).toBe('Column');
+    expect('getESuperTypes' in columnType).toBe(true);
+
+    // Clean up global registry
+    EPackageRegistry.INSTANCE.delete('http://example.com/relational');
+  });
+
+  it('should lazily resolve cross-package eType when package is registered after loading (fixes #13)', () => {
+    // This tests the deferred resolution scenario:
+    // The dependent package is loaded BEFORE the base package is registered.
+    // Proxy resolution should happen lazily when getEType() is called.
+
+    // Step 1: Load the dependent package FIRST (base package NOT yet registered)
+    const dependentEcoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="mapping2"
+    nsURI="http://example.com/mapping2" nsPrefix="mapping2">
+  <eClassifiers xsi:type="ecore:EClass" name="TableMapping">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="sourceTable"
+        eType="ecore:EClass http://example.com/base2#//BaseTable"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+    const depUri = URI.createURI('test://mapping2.ecore');
+    const depResource = new XMIResource(depUri);
+    depResource.setResourceSet(resourceSet);
+    depResource.loadFromString(dependentEcoreXML);
+
+    const mappingPkg = depResource.getContents()[0] as any;
+    const tableMappingClass = mappingPkg.getEClassifiers()[0] as any;
+    const sourceTableRef = tableMappingClass.getEStructuralFeatures()[0] as any;
+
+    // At this point, eType is an unresolved proxy
+    // (the base package is not registered yet)
+
+    // Step 2: Now load and register the base package
+    const baseEcoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="base2"
+    nsURI="http://example.com/base2" nsPrefix="base2">
+  <eClassifiers xsi:type="ecore:EClass" name="BaseTable">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="tableName"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+    const baseUri = URI.createURI('test://base2.ecore');
+    const baseResource = new XMIResource(baseUri);
+    baseResource.setResourceSet(resourceSet);
+    baseResource.loadFromString(baseEcoreXML);
+
+    const basePkg = baseResource.getContents()[0] as any;
+    // Register AFTER loading both
+    EPackageRegistry.INSTANCE.set('http://example.com/base2', basePkg);
+
+    // Step 3: Now getEType() should lazily resolve the proxy
+    const eType = sourceTableRef.getEType();
+    expect(eType).not.toBeNull();
+    expect(eType.getName()).toBe('BaseTable');
+    expect('getESuperTypes' in eType).toBe(true);
+
+    // getEReferenceType() should work
+    const refType = sourceTableRef.getEReferenceType();
+    expect(refType.getName()).toBe('BaseTable');
+
+    // Clean up global registry
+    EPackageRegistry.INSTANCE.delete('http://example.com/base2');
   });
 });
