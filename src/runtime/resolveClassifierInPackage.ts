@@ -8,6 +8,7 @@
 
 import { EClassifier } from '../EClassifier.js';
 import { EPackage } from '../EPackage.js';
+import { EList } from '../EList.js';
 
 /**
  * Resolves a classifier from a fragment path within an EPackage,
@@ -37,10 +38,10 @@ export function resolveClassifierInPackage(pkg: EPackage, fragment: string): ECl
 
   for (let i = 0; i < segments.length - 1; i++) {
     const subPkgName = segments[i];
-    const subPackages = currentPkg.getESubpackages();
+    const subPackages: EList<EPackage> = currentPkg.getESubpackages();
     currentPkg = null;
     for (let j = 0; j < subPackages.length; j++) {
-      const sp = subPackages.get(j);
+      const sp: EPackage = subPackages.get(j);
       if (sp.getName() === subPkgName) {
         currentPkg = sp;
         break;
