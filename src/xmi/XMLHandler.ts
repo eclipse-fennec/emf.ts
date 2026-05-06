@@ -18,7 +18,8 @@ import { Resource } from '../Resource.js';
 import { URI } from '../URI.js';
 import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
 import { EProxyImpl } from '../runtime/EProxyImpl.js';
- import { EList } from '../EList.js';
+import { resolveClassifierInPackage } from '../runtime/resolveClassifierInPackage.js';
+import { EList } from '../EList.js';
 import {
   XMLHelper,
   XMLHelperImpl,
@@ -592,9 +593,7 @@ export class XMLHandler {
             // Try to resolve through package registry
             const pkg = this.packageRegistry.getEPackage(nsURI);
             if (pkg) {
-              // Fragment like //Person -> extract class name
-              const className = fragment.replace(/^\/+/, '');
-              const resolved = pkg.getEClassifier(className);
+              const resolved = resolveClassifierInPackage(pkg, fragment);
               if (resolved) {
                 eType = resolved;
                 // Update the feature's eType to avoid resolving again
@@ -874,26 +873,8 @@ export class XMLHandler {
       return ePackage as unknown as EObject;
     }
 
-    // Split by / for nested paths
-    const segments = path.split('/');
-
-    // First segment is the classifier name
-    const classifierName = segments[0];
-    const classifier = ePackage.getEClassifier(classifierName);
-
-    if (!classifier) {
-      return null;
-    }
-
-    // If there are more segments, we need to navigate deeper
-    // For now, just return the classifier
-    if (segments.length === 1) {
-      return classifier as unknown as EObject;
-    }
-
-    // Handle nested navigation (e.g., //EClass/eStructuralFeatures/name)
-    // This would require more complex navigation logic
-    return classifier as unknown as EObject;
+    const classifier = resolveClassifierInPackage(ePackage, path);
+    return classifier as unknown as EObject ?? null;
   }
 
   /**

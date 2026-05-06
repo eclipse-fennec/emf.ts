@@ -14,6 +14,7 @@ import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { EPackageRegistry } from '../EPackage.js';
 import { isInternalEObject } from '../InternalEObject.js';
+import { resolveClassifierInPackage } from './resolveClassifierInPackage.js';
 
 /**
  * Abstract base class for EAttribute and EReference
@@ -111,8 +112,7 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
           const fragment = uriStr.substring(hashIndex + 1);
           const pkg = EPackageRegistry.INSTANCE.getEPackage(nsURI);
           if (pkg) {
-            const className = fragment.replace(/^\/+/, '');
-            const classifier = pkg.getEClassifier(className);
+            const classifier = resolveClassifierInPackage(pkg, fragment);
             if (classifier) {
               this.eType = classifier;
               return this.eType;
