@@ -24,6 +24,7 @@ import { BasicEAnnotation } from '../runtime/BasicEAnnotation.js';
 import { BasicEEnum } from '../runtime/BasicEEnum.js';
 import { BasicEEnumLiteral } from '../runtime/BasicEEnumLiteral.js';
 import { ecoreRegistry } from './EcoreRegistry.js';
+import { getXMLTypePackage } from './XMLTypePackage.js';
 
 /**
  * Ecore namespace URI
@@ -63,7 +64,8 @@ export function getEcorePackage(): EcorePackageImpl {
 export function registerEcorePackage(): void {
   if (ecorePackageInstance) {
     EPackageRegistry.INSTANCE.set(ECORE_NS_URI, ecorePackageInstance);
-    // Note: XMLType should be registered separately with its own package
+    // Also register XMLType package alongside Ecore
+    getXMLTypePackage();
   }
 }
 
