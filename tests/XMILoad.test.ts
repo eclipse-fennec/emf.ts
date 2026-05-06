@@ -664,4 +664,98 @@ describe('XMI Loading with Nested Elements', () => {
     // Clean up global registry
     EPackageRegistry.INSTANCE.delete('http://example.com/base2');
   });
+
+  it('should resolve cross-package eType in nested subpackages (fixes #16)', () => {
+    // This tests the fix for GitHub Issue #16:
+    // Fragment paths like //resource/relational/NamedColumnSet must navigate
+    // subpackages before looking up the classifier.
+
+    // Step 1: Load a package with nested subpackages
+    const cwmEcoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="cwm"
+    nsURI="http://example.com/cwm" nsPrefix="cwm">
+  <eSubpackages name="resource" nsURI="http://example.com/cwm/resource" nsPrefix="resource">
+    <eSubpackages name="relational" nsURI="http://example.com/cwm/resource/relational" nsPrefix="relational">
+      <eClassifiers xsi:type="ecore:EClass" name="NamedColumnSet">
+        <eStructuralFeatures xsi:type="ecore:EAttribute" name="name"
+            eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+      </eClassifiers>
+      <eClassifiers xsi:type="ecore:EClass" name="Table" eSuperTypes="#//resource/relational/NamedColumnSet">
+        <eStructuralFeatures xsi:type="ecore:EAttribute" name="tableName"
+            eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+      </eClassifiers>
+    </eSubpackages>
+  </eSubpackages>
+</ecore:EPackage>`;
+
+    const cwmUri = URI.createURI('test://cwm.ecore');
+    const cwmResource = new XMIResource(cwmUri);
+    cwmResource.setResourceSet(resourceSet);
+    cwmResource.loadFromString(cwmEcoreXML);
+
+    expect(cwmResource.getErrors().length).toBe(0);
+
+    const cwmPkg = cwmResource.getContents()[0] as any;
+    expect(cwmPkg.getName()).toBe('cwm');
+    resourceSet.getPackageRegistry().set('http://example.com/cwm', cwmPkg);
+    EPackageRegistry.INSTANCE.set('http://example.com/cwm', cwmPkg);
+
+    // Verify intra-package subpackage reference resolved (eSuperTypes)
+    const resourcePkg = cwmPkg.getESubpackages().get(0) as any;
+    const relationalPkg = resourcePkg.getESubpackages().get(0) as any;
+    const tableClass = relationalPkg.getEClassifiers()[1] as any;
+    expect(tableClass.getName()).toBe('Table');
+    const superTypes = tableClass.getESuperTypes();
+    expect(superTypes.length).toBe(1);
+    expect(superTypes[0].getName()).toBe('NamedColumnSet');
+
+    // Step 2: Load a dependent package referencing a type in the nested subpackage
+    const mappingEcoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="rolapmapping"
+    nsURI="http://example.com/rolapmapping" nsPrefix="rolapmapping">
+  <eClassifiers xsi:type="ecore:EClass" name="TableSource">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="table"
+        eType="ecore:EClass http://example.com/cwm#//resource/relational/Table"/>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="columnSet"
+        eType="ecore:EClass http://example.com/cwm#//resource/relational/NamedColumnSet"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+    const mappingUri = URI.createURI('test://rolapmapping.ecore');
+    const mappingResource = new XMIResource(mappingUri);
+    mappingResource.setResourceSet(resourceSet);
+    mappingResource.loadFromString(mappingEcoreXML);
+
+    const mappingErrors = mappingResource.getErrors();
+    if (mappingErrors.length > 0) {
+      console.log('Errors:', mappingErrors.map(e => e.message));
+    }
+    expect(mappingErrors.length).toBe(0);
+
+    // Step 3: Verify cross-package subpackage eType resolution
+    const mappingPkg = mappingResource.getContents()[0] as any;
+    const tableSourceClass = mappingPkg.getEClassifiers()[0] as any;
+
+    const tableRef = tableSourceClass.getEStructuralFeatures()[0] as any;
+    expect(tableRef.getName()).toBe('table');
+    const tableType = tableRef.getEType();
+    expect(tableType).not.toBeNull();
+    expect(tableType.getName()).toBe('Table');
+    expect('getESuperTypes' in tableType).toBe(true);
+
+    // getEReferenceType() must work
+    const refType = tableRef.getEReferenceType();
+    expect(refType.getName()).toBe('Table');
+
+    const columnSetRef = tableSourceClass.getEStructuralFeatures()[1] as any;
+    expect(columnSetRef.getName()).toBe('columnSet');
+    const columnSetType = columnSetRef.getEType();
+    expect(columnSetType).not.toBeNull();
+    expect(columnSetType.getName()).toBe('NamedColumnSet');
+
+    // Clean up global registry
+    EPackageRegistry.INSTANCE.delete('http://example.com/cwm');
+  });
 });
