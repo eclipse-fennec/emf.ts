@@ -758,4 +758,80 @@ describe('XMI Loading with Nested Elements', () => {
     // Clean up global registry
     EPackageRegistry.INSTANCE.delete('http://example.com/cwm');
   });
+
+  it('should resolve XMLType data types (fixes #18)', () => {
+    // This tests the fix for GitHub Issue #18:
+    // eType references to http://www.eclipse.org/emf/2003/XMLType#//Boolean etc.
+    // must resolve to actual EDataType objects.
+
+    const ecoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="sensor"
+    nsURI="http://example.com/sensor" nsPrefix="sensor">
+  <eClassifiers xsi:type="ecore:EClass" name="Reading">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="active"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2003/XMLType#//Boolean"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="value"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2003/XMLType#//Double"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="count"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2003/XMLType#//UnsignedInt"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="label"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2003/XMLType#//String"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="timestamp"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2003/XMLType#//DateTime"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+    const uri = URI.createURI('test://sensor.ecore');
+    const resource = new XMIResource(uri);
+    resource.setResourceSet(resourceSet);
+    resource.loadFromString(ecoreXML);
+
+    const errors = resource.getErrors();
+    if (errors.length > 0) {
+      console.log('Errors:', errors.map(e => e.message));
+    }
+    expect(errors.length).toBe(0);
+
+    const pkg = resource.getContents()[0] as any;
+    const readingClass = pkg.getEClassifiers()[0] as any;
+    expect(readingClass.getName()).toBe('Reading');
+
+    const features = readingClass.getEStructuralFeatures();
+
+    // Boolean
+    const activeAttr = features[0] as any;
+    expect(activeAttr.getName()).toBe('active');
+    const activeType = activeAttr.getEType();
+    expect(activeType).not.toBeNull();
+    expect(activeType.getName()).toBe('Boolean');
+
+    // Double
+    const valueAttr = features[1] as any;
+    expect(valueAttr.getName()).toBe('value');
+    const valueType = valueAttr.getEType();
+    expect(valueType).not.toBeNull();
+    expect(valueType.getName()).toBe('Double');
+
+    // UnsignedInt
+    const countAttr = features[2] as any;
+    expect(countAttr.getName()).toBe('count');
+    const countType = countAttr.getEType();
+    expect(countType).not.toBeNull();
+    expect(countType.getName()).toBe('UnsignedInt');
+
+    // String
+    const labelAttr = features[3] as any;
+    expect(labelAttr.getName()).toBe('label');
+    const labelType = labelAttr.getEType();
+    expect(labelType).not.toBeNull();
+    expect(labelType.getName()).toBe('String');
+
+    // DateTime
+    const tsAttr = features[4] as any;
+    expect(tsAttr.getName()).toBe('timestamp');
+    const tsType = tsAttr.getEType();
+    expect(tsType).not.toBeNull();
+    expect(tsType.getName()).toBe('DateTime');
+  });
 });
