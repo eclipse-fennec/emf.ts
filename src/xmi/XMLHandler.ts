@@ -873,8 +873,45 @@ export class XMLHandler {
       return ePackage as unknown as EObject;
     }
 
+    const segments = path.split('/');
+
+    // Try resolving as subpackage path first (existing behavior)
     const classifier = resolveClassifierInPackage(ePackage, path);
-    return classifier as unknown as EObject ?? null;
+    if (classifier) {
+      return classifier as unknown as EObject;
+    }
+
+    // If that failed and we have 2+ segments, try ClassName/featureName pattern:
+    // Navigate subpackages for all but last 2 segments, then resolve classifier + feature
+    if (segments.length >= 2) {
+      let currentPkg: EPackage = ePackage;
+
+      // Navigate subpackages (all segments except last two)
+      for (let i = 0; i < segments.length - 2; i++) {
+        const subPackages = currentPkg.getESubpackages();
+        let found: EPackage | null = null;
+        for (let j = 0; j < subPackages.length; j++) {
+          if (subPackages.get(j).getName() === segments[i]) {
+            found = subPackages.get(j);
+            break;
+          }
+        }
+        if (!found) return null;
+        currentPkg = found;
+      }
+
+      // Second-to-last segment: classifier
+      const classifierName = segments[segments.length - 2];
+      const eClassifier = currentPkg.getEClassifier(classifierName);
+      if (eClassifier && 'getEStructuralFeature' in eClassifier) {
+        const feature = (eClassifier as EClass).getEStructuralFeature(segments[segments.length - 1]);
+        if (feature) {
+          return feature as unknown as EObject;
+        }
+      }
+    }
+
+    return null;
   }
 
   /**
