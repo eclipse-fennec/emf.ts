@@ -13,6 +13,8 @@ import { EObject } from '../EObject.js';
 import { EPackage, EPackageRegistry } from '../EPackage.js';
 import { BasicResource } from './BasicResource.js';
 import { EList, BasicEList, createIndexedProxy } from '../EList.js';
+import { EClass } from '../EClass.js';
+import { resolveClassifierInPackage } from './resolveClassifierInPackage.js';
 
 /**
  * Basic ResourceSet implementation
@@ -471,14 +473,41 @@ class SyntheticPackageResource implements Resource {
       return this._syntheticPackage as unknown as EObject;
     }
 
-    // Split by / for nested paths
     const segments = path.split('/');
-    const classifierName = segments[0];
 
-    // Find classifier by name
-    const classifier = this._syntheticPackage.getEClassifier(classifierName);
+    // Try resolving as subpackage path first (handles single segment and subpackage navigation)
+    const classifier = resolveClassifierInPackage(this._syntheticPackage, path);
     if (classifier) {
       return classifier as unknown as EObject;
+    }
+
+    // If that failed and we have 2+ segments, try ClassName/featureName pattern
+    if (segments.length >= 2) {
+      let currentPkg: EPackage = this._syntheticPackage;
+
+      // Navigate subpackages (all segments except last two)
+      for (let i = 0; i < segments.length - 2; i++) {
+        const subPackages = currentPkg.getESubpackages();
+        let found: EPackage | null = null;
+        for (let j = 0; j < subPackages.length; j++) {
+          if (subPackages.get(j).getName() === segments[i]) {
+            found = subPackages.get(j);
+            break;
+          }
+        }
+        if (!found) return null;
+        currentPkg = found;
+      }
+
+      // Second-to-last segment: classifier, last segment: structural feature
+      const classifierName = segments[segments.length - 2];
+      const eClassifier = currentPkg.getEClassifier(classifierName);
+      if (eClassifier && 'getEStructuralFeature' in eClassifier) {
+        const feature = (eClassifier as EClass).getEStructuralFeature(segments[segments.length - 1]);
+        if (feature) {
+          return feature as unknown as EObject;
+        }
+      }
     }
 
     return null;
