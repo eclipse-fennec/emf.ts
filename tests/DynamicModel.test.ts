@@ -765,4 +765,54 @@ describe('Dynamic Model', () => {
       expect(employees.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe('Inheritance feature ID ordering', () => {
+    it('should return getEAllSuperTypes in DFS post-order (most-base-first)', () => {
+      const pkg = new BasicEPackage();
+      pkg.setName('test');
+      pkg.setNsURI('http://test/inheritance');
+
+      // Component (base)
+      const componentClass = new BasicEClass();
+      componentClass.setName('Component');
+      const nameAttr = new BasicEAttribute();
+      nameAttr.setName('name');
+      nameAttr.setEType(EcoreDataTypes.EString);
+      componentClass.getEStructuralFeatures().push(nameAttr);
+      pkg.getEClassifiers().push(componentClass);
+
+      // WidgetComponent extends Component
+      const widgetClass = new BasicEClass();
+      widgetClass.setName('WidgetComponent');
+      const labelAttr = new BasicEAttribute();
+      labelAttr.setName('label');
+      labelAttr.setEType(EcoreDataTypes.EString);
+      widgetClass.getEStructuralFeatures().push(labelAttr);
+      widgetClass.getESuperTypes().push(componentClass);
+      pkg.getEClassifiers().push(widgetClass);
+
+      // InputWidget extends WidgetComponent
+      const inputClass = new BasicEClass();
+      inputClass.setName('InputWidget');
+      const maxLengthAttr = new BasicEAttribute();
+      maxLengthAttr.setName('maxLength');
+      maxLengthAttr.setEType(EcoreDataTypes.EInt);
+      inputClass.getEStructuralFeatures().push(maxLengthAttr);
+      inputClass.getESuperTypes().push(widgetClass);
+      pkg.getEClassifiers().push(inputClass);
+
+      // getEAllSuperTypes should be most-base-first: [Component, WidgetComponent]
+      const allSupers = inputClass.getEAllSuperTypes();
+      expect(allSupers.map(c => c.getName())).toEqual(['Component', 'WidgetComponent']);
+
+      // getEAllStructuralFeatures should be: [name, label, maxLength]
+      const allFeatures = inputClass.getEAllStructuralFeatures();
+      expect(allFeatures.map(f => f.getName())).toEqual(['name', 'label', 'maxLength']);
+
+      // Feature IDs should match position
+      expect(inputClass.getFeatureID(nameAttr)).toBe(0);
+      expect(inputClass.getFeatureID(labelAttr)).toBe(1);
+      expect(inputClass.getFeatureID(maxLengthAttr)).toBe(2);
+    });
+  });
 });

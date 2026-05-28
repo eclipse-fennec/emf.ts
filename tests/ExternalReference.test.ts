@@ -75,4 +75,30 @@ describe('External Reference Resolution', () => {
     expect(resolved).not.toBeNull();
     expect((resolved as any).getName()).toBe('EInt');
   });
+
+  it('should resolve EStructuralFeature via //ClassName/featureName fragment', () => {
+    const ecorePackage = getEcorePackage();
+    const resourceSet = new BasicResourceSet();
+    resourceSet.getPackageRegistry().set(ECORE_NS_URI, ecorePackage);
+
+    // Resolve EClass.abstract via fragment //EClass/abstract
+    const uri = URI.createURI(ECORE_NS_URI + '#//EClass/abstract');
+    const resolved = resourceSet.getEObject(uri, true);
+
+    expect(resolved).not.toBeNull();
+    expect((resolved as any).getName()).toBe('abstract');
+  });
+
+  it('should resolve EStructuralFeature reference in XMI', () => {
+    const ecorePackage = getEcorePackage();
+    const resourceSet = new BasicResourceSet();
+    resourceSet.getPackageRegistry().set(ECORE_NS_URI, ecorePackage);
+
+    // Resolve EClass.eSuperTypes
+    const uri = URI.createURI(ECORE_NS_URI + '#//EClass/eSuperTypes');
+    const resolved = resourceSet.getEObject(uri, true);
+
+    expect(resolved).not.toBeNull();
+    expect((resolved as any).getName()).toBe('eSuperTypes');
+  });
 });

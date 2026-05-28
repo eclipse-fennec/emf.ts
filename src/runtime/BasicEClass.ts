@@ -76,8 +76,8 @@ export class BasicEClass extends BasicEObject implements EClass {
       for (const superType of eClass.getESuperTypes()) {
         if (!visited.has(superType)) {
           visited.add(superType);
-          all.push(superType);
           collect(superType);
+          all.push(superType);
         }
       }
     };
