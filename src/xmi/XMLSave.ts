@@ -256,12 +256,12 @@ export class XMLSave {
         if (!ref.isContainment()) {
           let value = obj.eGet(ref);
           if (value !== null && value !== undefined) {
+            const serializedRefName = this.helper.getSerializedFeatureName(ref);
             if (!feature.isMany()) {
               // Single-valued reference - resolve proxy first
               value = this.resolveValue(value, obj);
 
               if (value !== null && value !== undefined) {
-                const serializedRefName = this.helper.getSerializedFeatureName(ref);
                 // If value is now a string (unresolved proxy URI), use it directly
                 if (typeof value === 'string') {
                   this.output.push(` ${serializedRefName}="${this.escapeXml(value)}"`);
@@ -278,8 +278,24 @@ export class XMLSave {
                   }
                 }
               }
+            } else if (Array.isArray(value) || isEList(value)) {
+              // Multi-valued non-containment refs: same-document refs as space-separated attribute
+              const sameDocHrefs: string[] = [];
+              for (const refObj of value) {
+                const resolved = this.resolveValue(refObj, obj);
+                if (resolved === null || resolved === undefined) continue;
+                if (typeof resolved === 'string') continue; // cross-doc proxy, handled in writeElements
+                const refResource = (resolved as EObject).eResource?.();
+                if (refResource && refResource === this.resource) {
+                  const href = this.getHref(resolved as EObject);
+                  if (href) sameDocHrefs.push(href);
+                }
+                // cross-document refs are handled in writeElements
+              }
+              if (sameDocHrefs.length > 0) {
+                this.output.push(` ${serializedRefName}="${this.escapeXml(sameDocHrefs.join(' '))}"`);
+              }
             }
-            // Multi-valued non-containment refs are written as elements with href
           }
         }
       }
@@ -381,8 +397,13 @@ export class XMLSave {
           if ((Array.isArray(value) || isEList(value)) && value.length > 0) return true;
           if (!Array.isArray(value) && !isEList(value)) return true;
         } else if (feature.isMany() && (Array.isArray(value) || isEList(value)) && value.length > 0) {
-          // Multi-valued non-containment references
-          return true;
+          // Multi-valued non-containment references: only element content if cross-document
+          for (const refObj of value) {
+            const refResource = (refObj as EObject).eResource?.();
+            if (!refResource || refResource !== this.resource) {
+              return true;
+            }
+          }
         }
       }
     }
@@ -414,9 +435,14 @@ export class XMLSave {
             this.writeElement(ref, value as EObject);
           }
         } else if (feature.isMany() && (Array.isArray(value) || isEList(value)) && value.length > 0) {
-          // Multi-valued non-containment: write as elements with href
+          // Multi-valued non-containment: only cross-document refs as elements with href
           for (const refObj of value) {
-            const href = this.getHref(refObj as EObject);
+            const resolved = this.resolveValue(refObj, obj);
+            if (resolved === null || resolved === undefined) continue;
+            const refResource = typeof resolved !== 'string' ? (resolved as EObject).eResource?.() : null;
+            // Skip same-document refs (already written as attribute)
+            if (refResource && refResource === this.resource) continue;
+            const href = typeof resolved === 'string' ? resolved : this.getHref(resolved as EObject);
             if (href) {
               this.writeIndent();
               this.output.push(`<${this.helper.getSerializedFeatureName(ref)} href="${this.escapeXml(href)}"/>\n`);

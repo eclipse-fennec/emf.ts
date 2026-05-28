@@ -230,8 +230,8 @@ describe('Persistence', () => {
       expect(xml).toContain('brand="vw"');
       // Should have containment for cars
       expect(xml).toContain('<cars');
-      // Should have reference for children (multi-valued as element with href)
-      expect(xml).toContain('<children href=');
+      // Should have reference for children (multi-valued, same-document as attribute)
+      expect(xml).toContain('children=');
     });
 
     /**
@@ -456,8 +456,8 @@ describe('Persistence', () => {
       console.log('Bidirectional XML:', xml);
 
       // Both sides of the relationship should be serialized
-      // children is multi-valued -> element with href
-      expect(xml).toContain('<children href=');
+      // children is multi-valued, same-document -> attribute
+      expect(xml).toContain('children=');
       // father is single-valued -> attribute
       expect(xml).toContain('father=');
     });
