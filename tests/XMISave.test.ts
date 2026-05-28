@@ -782,6 +782,47 @@ describe('XMI Serialization', () => {
       expect(xml).toMatch(/primaryAddress="\/[^"]+"/);
     });
 
+    it('should serialize multi-valued non-containment refs as attribute for same-document targets', () => {
+      // Add a multi-valued non-containment reference: Person.friends (many, non-containment)
+      const friendsRef = new BasicEReference();
+      friendsRef.setName('friends');
+      friendsRef.setEType(personClass);
+      friendsRef.setContainment(false);
+      friendsRef.setUpperBound(-1);
+      personClass.getEStructuralFeatures().push(friendsRef);
+
+      const resource = new XMIResource(URI.createURI('test://multi-ref-many.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+
+      const person1 = factory.create(personClass);
+      person1.eSet(personClass.getEStructuralFeature('name')!, 'Alice');
+
+      const person2 = factory.create(personClass);
+      person2.eSet(personClass.getEStructuralFeature('name')!, 'Bob');
+
+      const person3 = factory.create(personClass);
+      person3.eSet(personClass.getEStructuralFeature('name')!, 'Charlie');
+
+      // All three are root objects in the same resource
+      resource.getContents().push(person1);
+      resource.getContents().push(person2);
+      resource.getContents().push(person3);
+
+      // person1.friends = [person2, person3] (multi-valued non-containment, same document)
+      const friendsList = person1.eGet(personClass.getEStructuralFeature('friends')!) as EObject[];
+      friendsList.push(person2);
+      friendsList.push(person3);
+
+      const xml = resource.saveToString();
+      console.log('Multi-valued non-containment same-doc XML:', xml);
+
+      // Should be serialized as attribute with space-separated fragments, NOT as child elements with href
+      expect(xml).toContain('friends="/1 /2"');
+      expect(xml).not.toContain('<friends href=');
+    });
+
     it('should collect namespaces from all root objects', () => {
       // Create a second package
       const otherPackage = new BasicEPackage();
