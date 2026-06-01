@@ -1,10 +1,10 @@
 # EMFTS - Eclipse Modeling Framework for TypeScript
 
-TypeScript interfaces converted from Eclipse EMF Core.
+A TypeScript implementation of Eclipse EMF Core — interfaces *and* runtime.
 
 ## Overview
 
-This package provides TypeScript interface definitions for the Eclipse Modeling Framework (EMF) Core metamodel. These interfaces enable type-safe modeling in TypeScript/JavaScript environments.
+This package provides a TypeScript implementation of the Eclipse Modeling Framework (EMF) Core metamodel — both the interface definitions and a working runtime: dynamic model objects with a reflective API, factories, the package registry, change notification, and JSON/XMI persistence. It enables type-safe modeling in TypeScript/JavaScript environments.
 
 The Ecore metamodel aligns with the OMG [Meta Object Facility (MOF)](https://www.omg.org/spec/MOF/) — specifically EMOF (Essential MOF).
 
@@ -109,6 +109,6 @@ These interfaces are TypeScript conversions of:
 
 ## Notes
 
-- This is a pure interface package - no implementations included
+- Ships interfaces and their runtime implementations (dynamic EObjects, EList/EMap, factories, registry, notifications, JSON/XMI resources)
 - Designed for building EMF-compatible tools in TypeScript
 - Suitable for code generators, model validators, and runtime frameworks
