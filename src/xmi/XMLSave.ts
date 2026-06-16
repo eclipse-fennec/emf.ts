@@ -331,6 +331,16 @@ export class XMLSave {
       }
     }
 
+    // For EClassifier/EStructuralFeature objects whose eResource() is null
+    // (e.g. in subpackages where eContainer chain is not set), check if the
+    // root package is in our resource and build a hierarchical fragment path.
+    if (!resource) {
+      const intraFragment = this.getIntraResourceFragment(obj);
+      if (intraFragment) {
+        return intraFragment;
+      }
+    }
+
     // Handle EStructuralFeature (EAttribute, EReference) - need containing class
     if ('getEContainingClass' in obj && typeof (obj as any).getEContainingClass === 'function') {
       const containingClass = (obj as any).getEContainingClass();
@@ -364,6 +374,59 @@ export class XMLSave {
       const name = (obj as any).getName?.();
       if (name) {
         return `//${name}`;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * For Ecore objects (EClassifier, EStructuralFeature) that lack eResource()
+   * because the eContainer chain is not set, walk up the Ecore-specific
+   * hierarchy (ePackage/eSuperPackage) to find the root package. If that root
+   * is in this.resource, build a hierarchical fragment path like
+   * "//service/base/Service" or "//service/base/Service/id".
+   */
+  protected getIntraResourceFragment(obj: EObject): string | null {
+    if (!this.resource) return null;
+
+    const pathSegments: string[] = [];
+    let pkg: EPackage | null = null;
+
+    // EStructuralFeature → getEContainingClass → getEPackage → ...
+    if ('getEContainingClass' in obj && typeof (obj as any).getEContainingClass === 'function') {
+      const containingClass = (obj as any).getEContainingClass();
+      if (!containingClass) return null;
+      const featureName = (obj as any).getName?.();
+      const className = containingClass.getName?.();
+      if (!featureName || !className) return null;
+      pathSegments.push(className, featureName);
+      pkg = containingClass.getEPackage?.() ?? null;
+    }
+    // EClassifier → getEPackage → ...
+    else if ('getEPackage' in obj && typeof (obj as any).getEPackage === 'function') {
+      const name = (obj as any).getName?.();
+      if (!name) return null;
+      pathSegments.push(name);
+      pkg = (obj as any).getEPackage();
+    }
+
+    if (!pkg) return null;
+
+    // Walk up eSuperPackage chain, collecting subpackage names
+    while (pkg) {
+      const superPkg = typeof pkg.getESuperPackage === 'function' ? pkg.getESuperPackage() : null;
+      if (!superPkg) break; // pkg is the root
+      const pkgName = pkg.getName?.();
+      if (pkgName) pathSegments.unshift(pkgName);
+      pkg = superPkg;
+    }
+
+    // Check if root package is in our resource's contents
+    const contents = this.resource.getContents();
+    for (const root of contents) {
+      if (root === pkg) {
+        return '#//' + pathSegments.join('/');
       }
     }
 
