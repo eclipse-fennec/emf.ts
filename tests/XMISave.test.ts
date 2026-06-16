@@ -1131,5 +1131,41 @@ describe('XMI Serialization', () => {
       expect(xml).not.toMatch(/eType="http:\/\/test\.com\/model\//);
       expect(xml).not.toMatch(/eOpposite="http:\/\/test\.com\/model\//);
     });
+
+    it('should use fragment paths on round-trip (load then re-serialize)', () => {
+      const ecorePackage = getEcorePackage();
+      resourceSet.getPackageRegistry().set(ecorePackage.getNsURI()!, ecorePackage);
+
+      // An ecore with cross-subpackage eType and eSuperTypes using correct fragment paths
+      const inputXml = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" name="wp" nsURI="http://test.com/wp" nsPrefix="wp">
+  <eSubpackages name="base" nsURI="http://test.com/wp/base" nsPrefix="base">
+    <eClassifiers xsi:type="ecore:EClass" name="Thing" abstract="true">
+      <eStructuralFeatures xsi:type="ecore:EAttribute" name="id" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    </eClassifiers>
+  </eSubpackages>
+  <eSubpackages name="service" nsURI="http://test.com/wp/service" nsPrefix="svc">
+    <eClassifiers xsi:type="ecore:EClass" name="MyService">
+      <eSuperTypes href="#//base/Thing"/>
+      <eStructuralFeatures xsi:type="ecore:EReference" name="relatedThing" eType="#//base/Thing"/>
+    </eClassifiers>
+  </eSubpackages>
+</ecore:EPackage>`;
+
+      const loadResource = new XMIResource(URI.createURI('wp.ecore'));
+      loadResource.setResourceSet(resourceSet);
+      loadResource.loadFromString(inputXml);
+
+      // Re-serialize — objects now have eResource() set from load
+      const outputXml = loadResource.saveToString();
+
+      // eSuperTypes must still use fragment path, NOT nsURI-based href
+      expect(outputXml).toContain('href="#//base/Thing"');
+      expect(outputXml).not.toMatch(/href="http:\/\/test\.com\/wp\/base/);
+
+      // eType for cross-subpackage ref must use fragment path
+      expect(outputXml).toContain('eType="#//base/Thing"');
+      expect(outputXml).not.toMatch(/eType="http:\/\/test\.com\/wp\/base/);
+    });
   });
 });

@@ -312,6 +312,14 @@ export class XMLSave {
       return proxyURI?.toString() || null;
     }
 
+    // For EClassifier/EStructuralFeature in subpackages, always check if the
+    // root package is in our resource — regardless of what eResource() returns,
+    // since the eContainer chain may point to a different resource instance.
+    const intraFragment = this.getIntraResourceFragment(obj);
+    if (intraFragment) {
+      return intraFragment;
+    }
+
     const resource = obj.eResource?.();
 
     // Try to get URI fragment from resource
@@ -328,16 +336,6 @@ export class XMLSave {
           return `${uri.toString()}#${fragment}`;
         }
         return `#${fragment}`;
-      }
-    }
-
-    // For EClassifier/EStructuralFeature objects whose eResource() is null
-    // (e.g. in subpackages where eContainer chain is not set), check if the
-    // root package is in our resource and build a hierarchical fragment path.
-    if (!resource) {
-      const intraFragment = this.getIntraResourceFragment(obj);
-      if (intraFragment) {
-        return intraFragment;
       }
     }
 
