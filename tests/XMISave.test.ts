@@ -975,4 +975,161 @@ describe('XMI Serialization', () => {
       expect(xml).toContain('<other:Item');
     });
   });
+
+  describe('Cross-subpackage references within same resource (#39)', () => {
+    it('should use fragment path for cross-subpackage EReference eType', () => {
+      // Build an Ecore-like package hierarchy:
+      // rootPkg
+      //   └── sub1 (has ClassA with ref to ClassB in sub2)
+      //   └── sub2 (has ClassB)
+      const rootPkg = new BasicEPackage();
+      rootPkg.setName('root');
+      rootPkg.setNsURI('http://test.com/root');
+      rootPkg.setNsPrefix('root');
+
+      const sub1 = new BasicEPackage();
+      sub1.setName('sub1');
+      sub1.setNsURI('http://test.com/root/sub1');
+      sub1.setNsPrefix('sub1');
+      rootPkg.getESubpackages().push(sub1);
+
+      const sub2 = new BasicEPackage();
+      sub2.setName('sub2');
+      sub2.setNsURI('http://test.com/root/sub2');
+      sub2.setNsPrefix('sub2');
+      rootPkg.getESubpackages().push(sub2);
+
+      const classB = new BasicEClass();
+      classB.setName('ClassB');
+      sub2.getEClassifiers().push(classB);
+
+      const classA = new BasicEClass();
+      classA.setName('ClassA');
+      sub1.getEClassifiers().push(classA);
+
+      // ClassA has a non-containment ref to ClassB (cross-subpackage, same resource)
+      const refToB = new BasicEReference();
+      refToB.setName('myRef');
+      refToB.setEType(classB);
+      refToB.setContainment(false);
+      classA.getEStructuralFeatures().push(refToB);
+
+      // Serialize the root package as an .ecore file
+      const ecoreResource = new XMIResource(URI.createURI('test.ecore'));
+      ecoreResource.setResourceSet(resourceSet);
+      ecoreResource.getContents().push(rootPkg);
+
+      const xml = ecoreResource.saveToString();
+      console.log('Cross-subpackage eType XML:', xml);
+
+      // eType should use fragment path, NOT full nsURI
+      expect(xml).toContain('eType="#//sub2/ClassB"');
+      expect(xml).not.toContain('http://test.com/root/sub2#//ClassB');
+    });
+
+    it('should use fragment path for eSuperTypes across subpackages', () => {
+      const rootPkg = new BasicEPackage();
+      rootPkg.setName('wp');
+      rootPkg.setNsURI('http://test.com/wp');
+      rootPkg.setNsPrefix('wp');
+
+      const basePkg = new BasicEPackage();
+      basePkg.setName('base');
+      basePkg.setNsURI('http://test.com/wp/base');
+      basePkg.setNsPrefix('base');
+      rootPkg.getESubpackages().push(basePkg);
+
+      const servicePkg = new BasicEPackage();
+      servicePkg.setName('service');
+      servicePkg.setNsURI('http://test.com/wp/service');
+      servicePkg.setNsPrefix('svc');
+      rootPkg.getESubpackages().push(servicePkg);
+
+      // Base class in basePkg
+      const baseClass = new BasicEClass();
+      baseClass.setName('Thing');
+      baseClass.setAbstract(true);
+      basePkg.getEClassifiers().push(baseClass);
+
+      // Subclass in servicePkg extends baseClass
+      const subClass = new BasicEClass();
+      subClass.setName('MyService');
+      subClass.getESuperTypes().push(baseClass);
+      servicePkg.getEClassifiers().push(subClass);
+
+      const ecoreResource = new XMIResource(URI.createURI('wp.ecore'));
+      ecoreResource.setResourceSet(resourceSet);
+      ecoreResource.getContents().push(rootPkg);
+
+      const xml = ecoreResource.saveToString();
+      console.log('Cross-subpackage eSuperTypes XML:', xml);
+
+      // eSuperTypes href should use fragment path
+      expect(xml).toContain('href="#//base/Thing"');
+      expect(xml).not.toContain('http://test.com/wp/base#//Thing');
+    });
+
+    it('should use fragment path for eOpposite across subpackages', () => {
+      const ecorePackage = getEcorePackage();
+      resourceSet.getPackageRegistry().set(ecorePackage.getNsURI()!, ecorePackage);
+
+      const rootPkg = new BasicEPackage();
+      rootPkg.setName('model');
+      rootPkg.setNsURI('http://test.com/model');
+      rootPkg.setNsPrefix('m');
+
+      const pkgA = new BasicEPackage();
+      pkgA.setName('a');
+      pkgA.setNsURI('http://test.com/model/a');
+      pkgA.setNsPrefix('a');
+      rootPkg.getESubpackages().push(pkgA);
+
+      const pkgB = new BasicEPackage();
+      pkgB.setName('b');
+      pkgB.setNsURI('http://test.com/model/b');
+      pkgB.setNsPrefix('b');
+      rootPkg.getESubpackages().push(pkgB);
+
+      const parentClass = new BasicEClass();
+      parentClass.setName('Parent');
+      pkgA.getEClassifiers().push(parentClass);
+
+      const childClass = new BasicEClass();
+      childClass.setName('Child');
+      pkgB.getEClassifiers().push(childClass);
+
+      // Bidirectional: Parent.children <-> Child.parent
+      const childrenRef = new BasicEReference();
+      childrenRef.setName('children');
+      childrenRef.setEType(childClass);
+      childrenRef.setContainment(true);
+      childrenRef.setUpperBound(-1);
+      parentClass.getEStructuralFeatures().push(childrenRef);
+
+      const parentRef = new BasicEReference();
+      parentRef.setName('parent');
+      parentRef.setEType(parentClass);
+      parentRef.setContainment(false);
+      childClass.getEStructuralFeatures().push(parentRef);
+
+      childrenRef.setEOpposite(parentRef);
+      parentRef.setEOpposite(childrenRef);
+
+      const ecoreResource = new XMIResource(URI.createURI('model.ecore'));
+      ecoreResource.setResourceSet(resourceSet);
+      ecoreResource.getContents().push(rootPkg);
+
+      const xml = ecoreResource.saveToString();
+      console.log('Cross-subpackage eOpposite XML:', xml);
+
+      // eType and eOpposite should all use fragment paths
+      expect(xml).toContain('eType="#//b/Child"');
+      expect(xml).toContain('eType="#//a/Parent"');
+      expect(xml).toContain('eOpposite="#//b/Child/parent"');
+      expect(xml).toContain('eOpposite="#//a/Parent/children"');
+      // eType/eOpposite should not use nsURI-based refs
+      expect(xml).not.toMatch(/eType="http:\/\/test\.com\/model\//);
+      expect(xml).not.toMatch(/eOpposite="http:\/\/test\.com\/model\//);
+    });
+  });
 });
