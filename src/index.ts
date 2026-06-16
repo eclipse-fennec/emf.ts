@@ -46,6 +46,10 @@ export * from './util/TypeGuards.js';
 // Utility classes
 export * from './util/EcoreUtil.js';
 
+// Validation
+export * from './util/Diagnostic.js';
+export * from './util/EValidator.js';
+
 // Notification system
 export * from './notify/index.js';
 
