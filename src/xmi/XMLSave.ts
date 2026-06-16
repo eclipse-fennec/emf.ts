@@ -415,7 +415,7 @@ export class XMLSave {
 
     // Walk up eSuperPackage chain, collecting subpackage names
     while (pkg) {
-      const superPkg = typeof pkg.getESuperPackage === 'function' ? pkg.getESuperPackage() : null;
+      const superPkg: any = typeof pkg.getESuperPackage === 'function' ? pkg.getESuperPackage() : null;
       if (!superPkg) break; // pkg is the root
       const pkgName = pkg.getName?.();
       if (pkgName) pathSegments.unshift(pkgName);
