@@ -346,6 +346,118 @@ describe('XMI Serialization', () => {
      * query.eSet(targetClassRef, PersonClass);
      * ```
      */
+    it('should serialize cross-document ref with type prefix when declared type is abstract', () => {
+      const metaPackage = new BasicEPackage();
+      metaPackage.setName('meta');
+      metaPackage.setNsURI('http://test.com/meta');
+      metaPackage.setNsPrefix('meta');
+
+      const metaFactory = new BasicEFactory();
+      metaFactory.setEPackage(metaPackage);
+      metaPackage.setEFactoryInstance(metaFactory);
+
+      // Declared type is abstract (like EClassifier in Ecore)
+      const abstractType = new BasicEClass();
+      abstractType.setName('AbstractType');
+      abstractType.setAbstract(true);
+      abstractType.setEPackage(metaPackage);
+      metaPackage.getEClassifiers().push(abstractType);
+
+      // Concrete type extends abstract
+      const concreteType = new BasicEClass();
+      concreteType.setName('ConcreteType');
+      concreteType.setEPackage(metaPackage);
+      metaPackage.getEClassifiers().push(concreteType);
+
+      // A class with a ref whose declared type is abstract
+      const holderClass = new BasicEClass();
+      holderClass.setName('Holder');
+      holderClass.setEPackage(metaPackage);
+      metaPackage.getEClassifiers().push(holderClass);
+
+      const targetRef = new BasicEReference();
+      targetRef.setName('target');
+      targetRef.setEType(abstractType); // declared type is abstract
+      targetRef.setContainment(false);
+      holderClass.getEStructuralFeatures().push(targetRef);
+
+      resourceSet.getPackageRegistry().set('http://test.com/meta', metaPackage);
+
+      // Create the referenced object in a different resource
+      const targetResource = new XMIResource(URI.createURI('targets.xmi'));
+      targetResource.setResourceSet(resourceSet);
+
+      const targetObj = metaFactory.create(concreteType);
+      targetResource.getContents().push(targetObj);
+      targetResource.setID(targetObj, 'obj1');
+
+      // Create holder in its own resource
+      const holderResource = new XMIResource(URI.createURI('holder.xmi'));
+      holderResource.setResourceSet(resourceSet);
+
+      const holder = metaFactory.create(holderClass);
+      holder.eSet(holderClass.getEStructuralFeature('target')!, targetObj);
+      holderResource.getContents().push(holder);
+
+      const xml = holderResource.saveToString();
+      console.log('Type-prefixed cross-doc ref XML:', xml);
+
+      // Should have type prefix: "meta:ConcreteType targets.xmi#obj1"
+      expect(xml).toContain('target="meta:ConcreteType targets.xmi#obj1"');
+    });
+
+    it('should NOT add type prefix for same-document refs', () => {
+      const metaPackage = new BasicEPackage();
+      metaPackage.setName('meta');
+      metaPackage.setNsURI('http://test.com/meta');
+      metaPackage.setNsPrefix('meta');
+
+      const metaFactory = new BasicEFactory();
+      metaFactory.setEPackage(metaPackage);
+      metaPackage.setEFactoryInstance(metaFactory);
+
+      const abstractType = new BasicEClass();
+      abstractType.setName('AbstractType');
+      abstractType.setAbstract(true);
+      abstractType.setEPackage(metaPackage);
+      metaPackage.getEClassifiers().push(abstractType);
+
+      const concreteType = new BasicEClass();
+      concreteType.setName('ConcreteType');
+      concreteType.setEPackage(metaPackage);
+      metaPackage.getEClassifiers().push(concreteType);
+
+      const holderClass = new BasicEClass();
+      holderClass.setName('Holder');
+      holderClass.setEPackage(metaPackage);
+      metaPackage.getEClassifiers().push(holderClass);
+
+      const targetRef = new BasicEReference();
+      targetRef.setName('target');
+      targetRef.setEType(abstractType);
+      targetRef.setContainment(false);
+      holderClass.getEStructuralFeatures().push(targetRef);
+
+      resourceSet.getPackageRegistry().set('http://test.com/meta', metaPackage);
+
+      // Both objects in same resource
+      const resource = new XMIResource(URI.createURI('test://same-doc.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const holder = metaFactory.create(holderClass);
+      const targetObj = metaFactory.create(concreteType);
+      resource.getContents().push(holder);
+      resource.getContents().push(targetObj);
+      holder.eSet(holderClass.getEStructuralFeature('target')!, targetObj);
+
+      const xml = resource.saveToString();
+      console.log('Same-doc no type prefix XML:', xml);
+
+      // Same-doc: just fragment, no type prefix
+      expect(xml).toContain('target="/1"');
+      expect(xml).not.toMatch(/target="meta:ConcreteType/);
+    });
+
     it('should serialize references to EClass objects', () => {
       // Register EcorePackage first
       const ecorePackage = getEcorePackage();

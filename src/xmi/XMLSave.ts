@@ -272,7 +272,7 @@ export class XMLSave {
                   // Handle primitive number (shouldn't be a reference, but handle gracefully)
                   this.output.push(` ${serializedRefName}="${String(value)}"`);
                 } else {
-                  const href = this.getHref(value as EObject);
+                  const href = this.getTypePrefixedHref(ref, value as EObject);
                   if (href) {
                     this.output.push(` ${serializedRefName}="${this.escapeXml(href)}"`);
                   }
@@ -368,6 +368,35 @@ export class XMLSave {
     }
 
     return null;
+  }
+
+  /**
+   * Get href with type prefix for cross-document references when the declared
+   * type is abstract and differs from the actual type.
+   * Java EMF format: "prefix:TypeName URI#fragment"
+   */
+  protected getTypePrefixedHref(ref: EReference, value: EObject): string | null {
+    const href = this.getHref(value);
+    if (!href) return null;
+
+    // Only add type prefix for cross-document refs (not starting with / or #)
+    if (href.startsWith('/') || href.startsWith('#')) return href;
+
+    const declaredType = ref.getEType();
+    const actualType = value.eClass();
+    if (declaredType && actualType && actualType !== declaredType
+        && 'isAbstract' in declaredType && (declaredType as EClass).isAbstract()) {
+      const actualPkg = actualType.getEPackage();
+      if (actualPkg) {
+        const prefix = this.getPrefix(actualPkg);
+        const typeName = actualType.getName();
+        if (prefix && typeName) {
+          return `${prefix}:${typeName} ${href}`;
+        }
+      }
+    }
+
+    return href;
   }
 
   /**
