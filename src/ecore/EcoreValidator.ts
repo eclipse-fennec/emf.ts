@@ -156,7 +156,7 @@ export class EcoreValidator implements EValidator {
     const opposite = ref.getEOpposite?.();
     if (opposite) {
       // ConsistentOpposite: opposite of containment must not be containment
-      if (ref.isContainment() && opposite.isContainment()) {
+      if (ref.isContainment?.() && opposite.isContainment?.()) {
         error(diagnostic,
           `The opposite of a containment reference '${ref.getName()}' must not be a containment reference`,
           [obj]);
