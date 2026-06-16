@@ -40,9 +40,10 @@ export * from '../xmi/index.js';
 // Re-export type guards
 export * from '../util/TypeGuards.js';
 
-// Export EcorePackage and XMLTypePackage
+// Export EcorePackage, XMLTypePackage, and EcoreValidator
 export * from './EcorePackage.js';
 export * from './XMLTypePackage.js';
+export * from './EcoreValidator.js';
 
 // Compatibility aliases for @masagroup/ecore
 import { BasicResourceSet } from '../runtime/BasicResourceSet.js';
