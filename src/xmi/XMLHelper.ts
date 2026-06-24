@@ -16,6 +16,7 @@ import { EStructuralFeature } from '../EStructuralFeature.js';
 import { EReference } from '../EReference.js';
 import { Resource } from '../Resource.js';
 import { URI } from '../URI.js';
+import type { XMLResource } from './XMLResource.js';
 /**
  * Option key for feature name mapping.
  * Value: Map<string, string> where key = feature name, value = XML name
@@ -86,6 +87,9 @@ export interface XMLHelper {
   deresolve(uri: URI): URI;
   resolve(relative: URI, base: URI): URI;
 
+  // ID handling
+  getID(obj: EObject): string | null;
+
   // Conversion
   convertToString(factory: EFactory, dataType: EDataType, data: any): string;
 }
@@ -142,6 +146,7 @@ class NamespaceSupport {
 export class XMLHelperImpl implements XMLHelper {
   protected noNamespacePackage: EPackage | null = null;
   protected resource: Resource | null = null;
+  protected xmlResource: XMLResource | null = null;
   protected resourceURI: URI | null = null;
   protected packageRegistry: EPackageRegistry = EPackageRegistry.INSTANCE;
 
@@ -165,6 +170,7 @@ export class XMLHelperImpl implements XMLHelper {
 
   setResource(resource: Resource): void {
     this.resource = resource;
+    this.xmlResource = (resource && 'getID' in resource) ? resource as XMLResource : null;
     if (resource) {
       this.resourceURI = resource.getURI();
       const resourceSet = resource.getResourceSet();
@@ -444,6 +450,10 @@ export class XMLHelperImpl implements XMLHelper {
 
   resolve(relative: URI, base: URI): URI {
     return relative.resolve(base);
+  }
+
+  getID(obj: EObject): string | null {
+    return this.xmlResource ? this.xmlResource.getID(obj) : null;
   }
 
   convertToString(factory: EFactory, dataType: EDataType, data: any): string {

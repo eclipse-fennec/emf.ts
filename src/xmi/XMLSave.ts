@@ -30,6 +30,7 @@ export class XMLSave {
   protected output: string[] = [];
   protected indent: number = 0;
   protected indentString: string = '  ';
+  protected idAttributeName: string = 'id';
 
   constructor(helper?: XMLHelper) {
     this.helper = helper || new XMLHelperImpl();
@@ -133,6 +134,9 @@ export class XMLSave {
       this.writeTypeAttribute(obj);
     }
 
+    // Write xmi:id if present
+    this.saveID(obj);
+
     // Write attributes
     this.writeAttributes(obj);
 
@@ -151,6 +155,16 @@ export class XMLSave {
       this.output.push(`</${qName}>\n`);
     } else {
       this.output.push('/>\n');
+    }
+  }
+
+  /**
+   * Write xmi:id attribute if the resource tracks an ID for this object
+   */
+  protected saveID(obj: EObject): void {
+    const id = this.helper.getID(obj);
+    if (id) {
+      this.output.push(` ${this.idAttributeName}="${this.escapeXml(id)}"`);
     }
   }
 
@@ -563,6 +577,9 @@ export class XMLSave {
       this.output.push(` xsi:type="${typeName}"`);
     }
 
+    // Write xmi:id if present
+    this.saveID(value);
+
     // Write attributes
     this.writeAttributes(value);
 
@@ -742,6 +759,11 @@ export class XMLSave {
  * XMI-specific save implementation
  */
 export class XMISave extends XMLSave {
+  constructor(helper?: XMLHelper) {
+    super(helper);
+    this.idAttributeName = 'xmi:id';
+  }
+
   protected override writeNamespaces(obj: EObject): void {
     super.writeNamespaces(obj);
   }

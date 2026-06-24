@@ -131,6 +131,56 @@ describe('XMI Loading', () => {
       expect(resource.getID(obj)).toBe('obj1');
       expect(resource.getEObject('obj1')).toBe(obj);
     });
+
+    it('should write xmi:id attributes during save', () => {
+      const resource = new XMIResource(URI.createURI('test://model.xmi'));
+
+      const pkg = new BasicEPackage();
+      pkg.setName('test');
+      pkg.setNsURI('http://test.com/model');
+      pkg.setNsPrefix('test');
+
+      const factory = new BasicEFactory(pkg);
+      pkg.setEFactoryInstance(factory);
+
+      const eClass = new BasicEClass();
+      eClass.setName('Item');
+      pkg.getEClassifiers().push(eClass);
+
+      const obj = factory.create(eClass);
+      resource.getContents().push(obj);
+      resource.setID(obj, 'item_42');
+
+      const xml = resource.saveToString();
+      expect(xml).toContain('xmi:id="item_42"');
+    });
+
+    it('should roundtrip xmi:id through load and save', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<test:Item xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:test="http://test.com/model" xmi:id="abc123"/>
+`;
+      const pkg = new BasicEPackage();
+      pkg.setName('test');
+      pkg.setNsURI('http://test.com/model');
+      pkg.setNsPrefix('test');
+
+      const eClass = new BasicEClass();
+      eClass.setName('Item');
+      pkg.getEClassifiers().push(eClass);
+
+      const resourceSet = new BasicResourceSet();
+      resourceSet.getPackageRegistry().set('http://test.com/model', pkg);
+
+      const resource = new XMIResource(URI.createURI('test://model.xmi'));
+      resource.setResourceSet(resourceSet);
+      resource.loadFromString(xml);
+
+      const obj = resource.getContents()[0];
+      expect(resource.getID(obj)).toBe('abc123');
+
+      const savedXml = resource.saveToString();
+      expect(savedXml).toContain('xmi:id="abc123"');
+    });
   });
 
   /**
