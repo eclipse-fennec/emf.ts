@@ -414,10 +414,12 @@ export class XMLSave {
    * Get href for cross-reference
    */
   protected getHref(obj: EObject): string | null {
-    // Handle proxies - return their URI directly
+    // Handle proxies — deresolve the proxy URI against the resource URI
+    // (Java EMF never resolves proxies during save, just deresolves)
     if (isInternalEObject(obj) && obj.eIsProxy()) {
       const proxyURI = obj.eProxyURI();
-      return proxyURI?.toString() || null;
+      if (!proxyURI) return null;
+      return this.helper.deresolve(proxyURI).toString();
     }
 
     // For EClassifier/EStructuralFeature in subpackages, always check if the
@@ -435,8 +437,10 @@ export class XMLSave {
       const fragment = resource.getURIFragment(obj);
       if (fragment) {
         // Same resource: use fragment-only reference
-        // Path-based fragments (/0, /1) are written without # (SAME_DOC / getIDREF style)
-        // ID-based fragments (xmi:id values) need # prefix
+        // Path-based fragments (/0, /0/@features.1) always start with /
+        // and are written without # (SAME_DOC / getIDREF style).
+        // ID-based fragments (xmi:id values like _myId) never start with /
+        // and get # prefix.
         if (resource === this.resource) {
           return fragment.startsWith('/') ? fragment : `#${fragment}`;
         }
