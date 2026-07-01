@@ -834,4 +834,49 @@ describe('XMI Loading with Nested Elements', () => {
     expect(tsType).not.toBeNull();
     expect(tsType.getName()).toBe('DateTime');
   });
+
+  describe('@feature.index fragment resolution (#62)', () => {
+    it('should resolve @feature.index URI fragments', () => {
+      const ecoreXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore"
+    name="testpkg" nsURI="http://test/pkg" nsPrefix="tp">
+  <eClassifiers xsi:type="ecore:EClass" name="Parent">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="name"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="age"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EInt"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="Child">
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="label"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+      const resource = new XMIResource(URI.createURI('test.ecore'));
+      resource.setResourceSet(resourceSet);
+      resource.loadFromString(ecoreXML);
+
+      // Test @eClassifiers.0 → first classifier (Parent)
+      const parent = resource.getEObject('//@eClassifiers.0');
+      expect(parent).not.toBeNull();
+      expect((parent as any).getName()).toBe('Parent');
+
+      // Test @eClassifiers.1 → second classifier (Child)
+      const child = resource.getEObject('//@eClassifiers.1');
+      expect(child).not.toBeNull();
+      expect((child as any).getName()).toBe('Child');
+
+      // Test nested: @eClassifiers.0/@eStructuralFeatures.1 → "age" attribute
+      const ageAttr = resource.getEObject('//@eClassifiers.0/@eStructuralFeatures.1');
+      expect(ageAttr).not.toBeNull();
+      expect((ageAttr as any).getName()).toBe('age');
+
+      // Test cross-reference using @feature.index format
+      const nameAttr = resource.getEObject('//@eClassifiers.0/@eStructuralFeatures.0');
+      expect(nameAttr).not.toBeNull();
+      expect((nameAttr as any).getName()).toBe('name');
+    });
+  });
 });

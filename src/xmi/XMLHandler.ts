@@ -920,6 +920,7 @@ export class XMLHandler {
       if (resolved) {
         this.helper.setValue(ref.object, ref.feature, resolved, ref.position);
       } else {
+        console.warn(`[XMLHandler] Forward ref UNRESOLVED: '${ref.value}' on feature '${ref.feature?.getName?.()}'`);
         // Create a proxy for unresolved reference
         const proxy = this.createProxy(ref.feature as EReference, ref.value);
         if (proxy) {

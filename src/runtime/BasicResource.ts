@@ -129,14 +129,17 @@ export class BasicResource implements Resource, Notifier {
       let startIndex = 0;
 
       if (isDoubleSlash) {
-        // For '//Name' fragments: start with root object and search in its contents
-        // This is how EMF handles named element navigation (like //SortOrder in an EPackage)
+        // For '//' fragments: start with root object
         current = this.contents.size() > 0 ? this.contents.get(0) : null;
         if (!current) {
           return null;
         }
-        // Now search for the first part in the root's eContents()
-        current = this.findByNameInContents(current, parts[0]);
+        // Handle @feature.index on root object, or search by name
+        if (parts[0].startsWith('@')) {
+          current = this.eObjectForURIFragmentSegment(current, parts[0]);
+        } else {
+          current = this.findByNameInContents(current, parts[0]);
+        }
         startIndex = 1;
 
         if (!current) {
@@ -237,6 +240,11 @@ export class BasicResource implements Resource, Notifier {
    * Navigate from an object to a child by name or feature.
    */
   private navigateByNameOrFeature(obj: EObject, nameOrFeature: string): EObject | null {
+    // Handle EMF @feature.index format (e.g., @ownedElement.5, @eClassifiers.0)
+    if (nameOrFeature.startsWith('@')) {
+      return this.eObjectForURIFragmentSegment(obj, nameOrFeature);
+    }
+
     // First try to find in direct contents by name
     const contents = obj.eContents();
     const byName = this.findByName(contents, nameOrFeature);
@@ -257,6 +265,63 @@ export class BasicResource implements Resource, Notifier {
       }
     }
 
+    return null;
+  }
+
+  /**
+   * Resolve a @feature.index URI fragment segment (Java EMF format).
+   * Formats:
+   * - @featureName.index → eGet(feature)[index] (multi-valued)
+   * - @featureName → eGet(feature) (single-valued)
+   */
+  private eObjectForURIFragmentSegment(obj: EObject, segment: string): EObject | null {
+    // Strip leading @
+    const body = segment.substring(1);
+    const eClass = obj.eClass();
+
+    const lastChar = body.charAt(body.length - 1);
+    let featureName: string;
+    let index = -1;
+
+    // If last char is a digit, look for .index suffix
+    if (lastChar >= '0' && lastChar <= '9') {
+      const dotIndex = body.lastIndexOf('.');
+      if (dotIndex > 0) {
+        const possibleIndex = parseInt(body.substring(dotIndex + 1), 10);
+        if (!isNaN(possibleIndex)) {
+          featureName = body.substring(0, dotIndex);
+          index = possibleIndex;
+        } else {
+          featureName = body;
+        }
+      } else {
+        featureName = body;
+      }
+    } else {
+      featureName = body;
+    }
+
+    const feature = eClass.getEStructuralFeature(featureName);
+    if (!feature) return null;
+
+    const value = obj.eGet(feature);
+    if (value === null || value === undefined) return null;
+
+    if (index >= 0) {
+      // Multi-valued: access by index
+      if (Array.isArray(value)) {
+        return (value[index] as EObject) ?? null;
+      }
+      if (typeof value === 'object' && 'get' in value && typeof (value as any).get === 'function') {
+        return ((value as any).get(index) as EObject) ?? null;
+      }
+      return null;
+    }
+
+    // Single-valued
+    if (typeof value === 'object' && 'eClass' in value) {
+      return value as EObject;
+    }
     return null;
   }
 
