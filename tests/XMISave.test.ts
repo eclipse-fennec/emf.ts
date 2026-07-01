@@ -1168,4 +1168,72 @@ describe('XMI Serialization', () => {
       expect(outputXml).not.toMatch(/eType="http:\/\/test\.com\/wp\/base/);
     });
   });
+
+  describe('ID-based same-resource references (#57)', () => {
+    it('should write # prefix for xmi:id-based same-resource references', () => {
+      const resource = new XMIResource(URI.createURI('test://id-ref.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'John');
+
+      const address = factory.create(addressClass);
+      address.eSet(addressClass.getEStructuralFeature('street')!, 'Main St');
+
+      resource.getContents().push(person);
+      resource.getContents().push(address);
+
+      // Set xmi:id on the address
+      resource.setID(address, '_addr_1');
+
+      // Set non-containment reference
+      person.eSet(personClass.getEStructuralFeature('primaryAddress')!, address);
+
+      const xml = resource.saveToString();
+      console.log('ID-based ref XML:', xml);
+
+      // ID-based fragment must have # prefix
+      expect(xml).toContain('primaryAddress="#_addr_1"');
+      // Must NOT be without #
+      expect(xml).not.toContain('primaryAddress="/_addr_1"');
+    });
+
+    it('should round-trip ID-based references', () => {
+      const resource = new XMIResource(URI.createURI('test://id-roundtrip.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'Jane');
+
+      const address = factory.create(addressClass);
+      address.eSet(addressClass.getEStructuralFeature('street')!, 'Oak Ave');
+
+      resource.getContents().push(person);
+      resource.getContents().push(address);
+
+      resource.setID(person, '_person_1');
+      resource.setID(address, '_addr_1');
+
+      person.eSet(personClass.getEStructuralFeature('primaryAddress')!, address);
+
+      // Save
+      const xml = resource.saveToString();
+
+      // Reload
+      const resource2 = new XMIResource(URI.createURI('test://id-roundtrip2.xmi'));
+      resource2.setResourceSet(resourceSet);
+      resource2.loadFromString(xml);
+
+      const loadedPerson = resource2.getContents().get(0);
+      expect(loadedPerson.eGet(personClass.getEStructuralFeature('name')!)).toBe('Jane');
+
+      const loadedAddr = loadedPerson.eGet(personClass.getEStructuralFeature('primaryAddress')!);
+      expect(loadedAddr).not.toBeNull();
+      expect(loadedAddr.eGet(addressClass.getEStructuralFeature('street')!)).toBe('Oak Ave');
+    });
+  });
 });

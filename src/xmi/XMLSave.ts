@@ -428,8 +428,10 @@ export class XMLSave {
       const fragment = resource.getURIFragment(obj);
       if (fragment) {
         // Same resource: use fragment-only reference
+        // Path-based fragments (/0, /1) are written without # (SAME_DOC / getIDREF style)
+        // ID-based fragments (xmi:id values) need # prefix
         if (resource === this.resource) {
-          return fragment.startsWith('/') ? fragment : `/${fragment}`;
+          return fragment.startsWith('/') ? fragment : `#${fragment}`;
         }
         // Different resource: use full URI
         const uri = resource.getURI();
