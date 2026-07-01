@@ -939,6 +939,7 @@ export class XMLHandler {
   protected createProxy(feature: EReference, uriValue: string): EObject | null {
     // Determine the proxy URI
     let proxyURI: URI;
+    const resourceURI = this.resource.getURI();
 
     // Handle EMF typed reference format: "prefix:TypeName URI#fragment"
     const spaceIndex = uriValue.indexOf(' ');
@@ -948,11 +949,27 @@ export class XMLHandler {
 
     const hashIndex = uriValue.indexOf('#');
     if (hashIndex > 0) {
-      // External URI with fragment
-      proxyURI = URI.createURI(uriValue);
+      // External URI with fragment — resolve relative URIs to absolute
+      // (Java EMF resolves at load time to avoid path-doubling on access)
+      const baseUriStr = uriValue.substring(0, hashIndex);
+      const fragment = uriValue.substring(hashIndex + 1);
+
+      if (resourceURI && !baseUriStr.includes('://')) {
+        // Check for self-reference (base matches current resource)
+        const currentStr = resourceURI.toString();
+        if (baseUriStr === currentStr || currentStr.endsWith(baseUriStr) || currentStr.endsWith('/' + baseUriStr)) {
+          // Same resource — store as absolute resourceURI#fragment
+          proxyURI = URI.createURI(currentStr + '#' + fragment);
+        } else {
+          // Different resource — resolve relative to absolute
+          const resolved = URI.createURI(baseUriStr).resolve(resourceURI);
+          proxyURI = URI.createURI(resolved.toString() + '#' + fragment);
+        }
+      } else {
+        proxyURI = URI.createURI(uriValue);
+      }
     } else if (hashIndex === 0) {
       // Same-resource fragment reference
-      const resourceURI = this.resource.getURI();
       if (resourceURI) {
         proxyURI = URI.createURI(resourceURI.toString() + uriValue);
       } else {
@@ -960,7 +977,6 @@ export class XMLHandler {
       }
     } else if (uriValue.startsWith('/')) {
       // Path reference - make it a fragment
-      const resourceURI = this.resource.getURI();
       if (resourceURI) {
         proxyURI = URI.createURI(resourceURI.toString() + '#' + uriValue);
       } else {
@@ -968,7 +984,6 @@ export class XMLHandler {
       }
     } else {
       // Simple ID reference
-      const resourceURI = this.resource.getURI();
       if (resourceURI) {
         proxyURI = URI.createURI(resourceURI.toString() + '#' + uriValue);
       } else {
@@ -1012,9 +1027,13 @@ export class XMLHandler {
       const baseURI = ref.substring(0, hashIndex);
       const fragment = ref.substring(hashIndex + 1);
 
-      // Check if this is a same-resource reference
+      // Check if this is a same-resource reference (exact match or relative match)
       const currentURI = this.resource.getURI();
-      if (currentURI && currentURI.toString() === baseURI) {
+      const currentStr = currentURI?.toString();
+      if (currentStr && (currentStr === baseURI
+          || currentStr.endsWith(baseURI)
+          || currentStr.endsWith('/' + baseURI)
+          || baseURI.endsWith(currentStr))) {
         // Same resource - resolve directly
         return this.resource.getEObject(fragment);
       }

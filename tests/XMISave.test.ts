@@ -1236,4 +1236,53 @@ describe('XMI Serialization', () => {
       expect(loadedAddr.eGet(addressClass.getEStructuralFeature('street')!)).toBe('Oak Ave');
     });
   });
+
+  describe('Self-referencing URI resolution (#58)', () => {
+    it('should resolve self-referencing href without URI doubling', () => {
+      // Simulate: XMI file with self-referencing href (resource name in reference)
+      const resource = new XMIResource(URI.createURI('instances/instances.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      // XML contains self-referencing href: instances/instances.xmi#/_dim1
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:test="http://test.com/model">
+  <test:Address xmi:id="_addr1" street="Main St" city="Springfield"/>
+  <test:Person xmi:id="_person1" name="John" primaryAddress="instances/instances.xmi#_addr1"/>
+</xmi:XMI>`;
+
+      resource.loadFromString(xml);
+
+      const person = resource.getContents().get(1);
+      expect(person.eGet(personClass.getEStructuralFeature('name')!)).toBe('John');
+
+      const addr = person.eGet(personClass.getEStructuralFeature('primaryAddress')!);
+      expect(addr).not.toBeNull();
+      // Must resolve to the Address in the SAME resource, not a different one
+      expect(addr.eResource()).toBe(resource);
+      expect(addr.eGet(addressClass.getEStructuralFeature('street')!)).toBe('Main St');
+    });
+
+    it('should save self-resolved references as fragment-only', () => {
+      const resource = new XMIResource(URI.createURI('instances/instances.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      // Load with self-referencing href
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:test="http://test.com/model">
+  <test:Address xmi:id="_addr1" street="Main St" city="Springfield"/>
+  <test:Person xmi:id="_person1" name="John" primaryAddress="instances/instances.xmi#_addr1"/>
+</xmi:XMI>`;
+
+      resource.loadFromString(xml);
+
+      // Re-save — self-references must be written as fragment-only (#_addr1)
+      const saved = resource.saveToString();
+      console.log('Self-ref save:', saved);
+
+      // Must NOT contain the resource path in the reference
+      expect(saved).not.toContain('instances/instances.xmi#');
+      // Must contain fragment-only reference
+      expect(saved).toContain('#_addr1');
+    });
+  });
 });
