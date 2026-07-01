@@ -29,6 +29,7 @@ import {
   IS_MANY_MOVE,
   OTHER
 } from './XMLHelper.js';
+import { ExtendedMetaData, SIMPLE_CONTENT } from './ExtendedMetaData.js';
 
 /**
  * Stack types for tracking parse state
@@ -38,6 +39,7 @@ export const OBJECT_TYPE = 'object';
 export const UNKNOWN_FEATURE_TYPE = 'unknownFeature';
 export const REFERENCE_TYPE = 'reference';
 export const XMI_WRAPPER_TYPE = 'xmiWrapper';
+export const DEFERRED_TYPE = 'deferredType';
 
 /**
  * SAX Attributes interface
@@ -152,6 +154,12 @@ export class XMLHandler {
   protected isNamespaceAware: boolean = false;
   protected needsPushContext: boolean = false;
 
+  // Deferred containment: when a containment feature's type is abstract and no
+  // xsi:type is given, we defer object creation to the inner element which
+  // specifies the concrete type (RDF/XML wrapping pattern).
+  protected deferredFeature: EStructuralFeature | null = null;
+  protected deferredParent: EObject | null = null;
+
   // Resource extent
   protected extent: EList<EObject>;
   protected deferredExtent: EObject[] | null = null;
@@ -261,8 +269,22 @@ export class XMLHandler {
     if (type === OBJECT_TYPE) {
       const object = this.objects.pop();
       if (this.text !== null && this.text.length > 0 && object) {
-        // Handle proxy
-        this.handleProxy(object, this.text.trim());
+        const trimmed = this.text.trim();
+        if (trimmed.length > 0) {
+          // Try simple content mapping via ExtendedMetaData
+          const emd = this.helper.getExtendedMetaData();
+          if (emd) {
+            const eClass = object.eClass();
+            if (emd.getContentKind(eClass) === SIMPLE_CONTENT) {
+              const simpleFeature = emd.getSimpleContentFeature(eClass);
+              if (simpleFeature) {
+                this.setFeatureValue(object, simpleFeature, trimmed);
+              }
+            }
+          }
+          // Handle proxy
+          this.handleProxy(object, trimmed);
+        }
       }
       this.text = null;
     } else if (type === ERROR_TYPE) {
@@ -272,6 +294,12 @@ export class XMLHandler {
     } else if (type === REFERENCE_TYPE) {
       // Reference element with href - just pop the null, reference was already handled
       this.objects.pop();
+      this.text = null;
+    } else if (type === DEFERRED_TYPE) {
+      // Deferred containment that was never resolved (no inner element)
+      this.objects.pop();
+      this.deferredParent = null;
+      this.deferredFeature = null;
       this.text = null;
     } else if (type === XMI_WRAPPER_TYPE) {
       // XMI wrapper element - just pop the marker, no object was created
@@ -489,8 +517,8 @@ export class XMLHandler {
         continue;
       }
 
-      // Set attribute value
-      this.setAttribValue(obj, localName || qName, value);
+      // Set attribute value, passing namespace URI for EMD resolution
+      this.setAttribValue(obj, localName || qName, value, uri || null);
     }
   }
 
@@ -504,9 +532,9 @@ export class XMLHandler {
   /**
    * Set attribute value on object
    */
-  protected setAttribValue(obj: EObject, name: string, value: string): void {
+  protected setAttribValue(obj: EObject, name: string, value: string, namespaceURI?: string | null): void {
     const eClass = obj.eClass();
-    const feature = this.helper.getFeature(eClass, null, name);
+    const feature = this.helper.getFeature(eClass, namespaceURI ?? null, name);
 
     if (feature) {
       this.setFeatureValue(obj, feature, value, -2);
@@ -520,6 +548,11 @@ export class XMLHandler {
     const peekObject = this.objects[this.objects.length - 1];
 
     if (!peekObject) {
+      // Check if we have a deferred containment (abstract type waiting for inner element)
+      if (this.deferredParent && this.deferredFeature) {
+        this.handleDeferredType(prefix, localName);
+        return;
+      }
       this.objects.push(null); // Push null to keep stack in sync with types
       this.types.push(ERROR_TYPE);
       this.error(`Feature '${localName}' has no parent object`);
@@ -527,7 +560,9 @@ export class XMLHandler {
     }
 
     const eClass = peekObject.eClass();
-    const feature = this.helper.getFeatureWithElement(eClass, null, localName, true);
+    // Resolve namespace URI from prefix for EMD-aware feature lookup
+    const namespaceURI = prefix ? (this.helper.getURI(prefix) || null) : null;
+    const feature = this.helper.getFeatureWithElement(eClass, namespaceURI, localName, true);
 
     if (feature) {
       const kind = this.helper.getFeatureKind(feature);
@@ -613,6 +648,14 @@ export class XMLHandler {
           if (eFactory) {
             eObject = eFactory.create(eClass);
           }
+        } else {
+          // Type is abstract — defer object creation to inner element
+          // (RDF/XML wrapping pattern: inner element determines concrete type)
+          this.deferredParent = parent;
+          this.deferredFeature = feature;
+          this.objects.push(null);
+          this.types.push(DEFERRED_TYPE);
+          return;
         }
       }
     }
@@ -627,12 +670,176 @@ export class XMLHandler {
   }
 
   /**
-   * Handle unknown feature
+   * Handle unknown feature.
+   * Priority:
+   * 1. EMD feature lookup with owner package namespace (wrapper pattern)
+   * 2. EClassifier match for type replacement (#53)
+   * 3. Error
    */
   protected handleUnknownFeature(prefix: string, name: string, parent: EObject): void {
+    const nsURI = prefix ? (this.helper.getURI(prefix) || null) : null;
+
+    // 1. Try EMD feature lookup with the element's namespace
+    //    This handles wrapper classes where a feature has EMD name matching
+    //    a class name (e.g., Agent class has feature "agent" with EMD name="Agent")
+    const emd = this.helper.getExtendedMetaData();
+    if (emd && nsURI) {
+      const eClass = parent.eClass();
+      const feature = emd.getElementFeature(eClass, nsURI, name);
+      if (feature) {
+        const kind = this.helper.getFeatureKind(feature);
+        if (kind === DATATYPE_SINGLE || kind === DATATYPE_IS_MANY) {
+          this.objects.push(null);
+          this.types.push(feature);
+          if (!this.isNull()) {
+            this.text = '';
+          }
+        } else {
+          this.createObject(parent, feature);
+        }
+        return;
+      }
+    }
+
+    // 2. Try RDF/XML element wrapping on concrete types: element name might be a type name
+    if (nsURI) {
+      const pkg = this.packageRegistry.getEPackage(nsURI);
+      if (pkg) {
+        const classifier = pkg.getEClassifier(name);
+        if (classifier && 'getESuperTypes' in classifier) {
+          const eClass = classifier as EClass;
+          const parentClass = parent.eClass();
+
+          if (eClass === parentClass) {
+            // Same type — just use parent as context
+            this.handleObjectAttribs(parent);
+            this.objects.push(parent);
+            this.types.push(OBJECT_TYPE);
+            return;
+          }
+
+          if (parentClass.isSuperTypeOf(eClass) && !eClass.isAbstract()) {
+            // More specific subtype — replace parent with concrete instance
+            const eFactory = eClass.getEPackage()?.getEFactoryInstance();
+            if (eFactory) {
+              const concreteObject = eFactory.create(eClass);
+
+              // Copy attributes already set on the old (general) object
+              for (const f of parentClass.getEAllStructuralFeatures()) {
+                if (f.isTransient() || f.isDerived()) continue;
+                const v = parent.eGet(f);
+                if (v !== null && v !== undefined) {
+                  try { concreteObject.eSet(f, v); } catch { /* feature may not exist on subtype */ }
+                }
+              }
+
+              // Replace in grandparent's containment
+              this.replaceInParentContainment(parent, concreteObject);
+
+              // Replace on the objects stack
+              const parentIndex = this.objects.length - 1;
+              this.objects[parentIndex] = concreteObject;
+
+              // Handle attributes on the wrapper element
+              this.handleObjectAttribs(concreteObject);
+
+              // Push for the inner element's own context
+              this.objects.push(concreteObject);
+              this.types.push(OBJECT_TYPE);
+              return;
+            }
+          }
+        }
+      }
+    }
+
     this.objects.push(null); // Push null to keep stack in sync with types
     this.types.push(ERROR_TYPE);
     this.error(`Unknown feature '${name}' for type '${parent.eClass().getName()}'`);
+  }
+
+  /**
+   * Replace an object in the grandparent's containment reference.
+   */
+  protected replaceInParentContainment(oldObj: EObject, newObj: EObject): void {
+    // Find the grandparent (the object that contains oldObj)
+    const parentIndex = this.objects.length - 1;
+    if (parentIndex < 1) return;
+
+    const grandParent = this.objects[parentIndex - 1];
+    if (!grandParent) return;
+
+    const gpClass = grandParent.eClass();
+    for (const feature of gpClass.getEAllStructuralFeatures()) {
+      if (!('isContainment' in feature)) continue;
+      const ref = feature as EReference;
+      if (!ref.isContainment()) continue;
+
+      if (ref.isMany()) {
+        const list = grandParent.eGet(ref) as any[];
+        if (list) {
+          for (let i = list.length - 1; i >= 0; i--) {
+            if (list[i] === oldObj) {
+              list[i] = newObj;
+              return;
+            }
+          }
+        }
+      } else {
+        if (grandParent.eGet(ref) === oldObj) {
+          grandParent.eSet(ref, newObj);
+          return;
+        }
+      }
+    }
+  }
+
+  /**
+   * Handle deferred type resolution (RDF/XML wrapping pattern).
+   * When a containment feature has an abstract type, the inner element
+   * specifies the concrete type to instantiate.
+   */
+  protected handleDeferredType(prefix: string, localName: string): void {
+    const parent = this.deferredParent!;
+    const feature = this.deferredFeature!;
+    this.deferredParent = null;
+    this.deferredFeature = null;
+
+    // Try to resolve element name as a type
+    const nsURI = prefix ? (this.helper.getURI(prefix) || null) : null;
+    let eObject: EObject | null = null;
+
+    if (nsURI) {
+      const pkg = this.packageRegistry.getEPackage(nsURI);
+      if (pkg) {
+        const classifier = pkg.getEClassifier(localName);
+        if (classifier && 'getESuperTypes' in classifier) {
+          const eClass = classifier as EClass;
+          if (!eClass.isAbstract()) {
+            const eFactory = eClass.getEPackage()?.getEFactoryInstance();
+            if (eFactory) {
+              eObject = eFactory.create(eClass);
+            }
+          }
+        }
+      }
+    }
+
+    if (eObject) {
+      // Set value on the deferred parent's feature
+      this.helper.setValue(parent, feature, eObject, -1);
+      this.handleObjectAttribs(eObject);
+      // Replace the null on the stack with the new object
+      this.objects[this.objects.length - 1] = eObject;
+      this.types[this.types.length - 1] = OBJECT_TYPE;
+      // Push again for the inner element's own context
+      this.objects.push(eObject);
+      this.types.push(OBJECT_TYPE);
+    } else {
+      this.objects.push(null);
+      this.types.push(ERROR_TYPE);
+      this.error(`Cannot resolve type '${localName}' for deferred containment`);
+    }
   }
 
   /**

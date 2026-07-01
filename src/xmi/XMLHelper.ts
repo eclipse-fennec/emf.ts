@@ -17,11 +17,17 @@ import { EReference } from '../EReference.js';
 import { Resource } from '../Resource.js';
 import { URI } from '../URI.js';
 import type { XMLResource } from './XMLResource.js';
+import { ExtendedMetaData, ELEMENT_FEATURE, ATTRIBUTE_FEATURE, SIMPLE_FEATURE, UNSPECIFIED_FEATURE } from './ExtendedMetaData.js';
 /**
  * Option key for feature name mapping.
  * Value: Map<string, string> where key = feature name, value = XML name
  */
 export const OPTION_FEATURE_NAME_MAP = 'FEATURE_NAME_MAP';
+
+/**
+ * Option key for ExtendedMetaData.
+ */
+export const OPTION_EXTENDED_META_DATA = 'EXTENDED_META_DATA';
 
 /**
  * Feature kind constants for loading
@@ -79,6 +85,9 @@ export interface XMLHelper {
   getFeatureKind(feature: EStructuralFeature): number;
   getSerializedFeatureName(feature: EStructuralFeature): string;
   setValue(eObject: EObject, feature: EStructuralFeature, value: any, position: number): void;
+
+  // ExtendedMetaData
+  getExtendedMetaData(): ExtendedMetaData | null;
 
   // Reference handling
   setManyReference(reference: ManyReference, location: string): Error[];
@@ -162,6 +171,9 @@ export class XMLHelperImpl implements XMLHelper {
   protected featureNameMap: Map<string, string> = new Map();
   protected reverseFeatureNameMap: Map<string, string> = new Map();
 
+  // ExtendedMetaData support
+  protected extendedMetaData: ExtendedMetaData | null = null;
+
   constructor(resource?: Resource) {
     if (resource) {
       this.setResource(resource);
@@ -191,6 +203,16 @@ export class XMLHelperImpl implements XMLHelper {
         this.reverseFeatureNameMap.set(xmlName, featureName);
       }
     }
+    const emd = options.get(OPTION_EXTENDED_META_DATA);
+    if (emd instanceof ExtendedMetaData) {
+      this.extendedMetaData = emd;
+    } else if (emd === true) {
+      this.extendedMetaData = new ExtendedMetaData();
+    }
+  }
+
+  getExtendedMetaData(): ExtendedMetaData | null {
+    return this.extendedMetaData;
   }
 
   setNoNamespacePackage(pkg: EPackage | null): void {
@@ -307,6 +329,15 @@ export class XMLHelperImpl implements XMLHelper {
   }
 
   getFeature(eClass: EClass, namespaceURI: string | null, name: string): EStructuralFeature | null {
+    // Try EMD-based lookup first (attribute context)
+    if (this.extendedMetaData) {
+      const emdFeature = this.extendedMetaData.getAttributeFeature(eClass, namespaceURI, name);
+      if (emdFeature) {
+        this.computeFeatureKind(emdFeature);
+        return emdFeature;
+      }
+    }
+
     let feature = eClass.getEStructuralFeature(name);
     if (!feature && this.reverseFeatureNameMap.size > 0) {
       // Try reverse lookup: XML name -> feature name
@@ -322,10 +353,27 @@ export class XMLHelperImpl implements XMLHelper {
   }
 
   getFeatureWithElement(eClass: EClass, namespaceURI: string | null, name: string, isElement: boolean): EStructuralFeature | null {
+    // Try EMD-based lookup first
+    if (this.extendedMetaData) {
+      const emdFeature = this.extendedMetaData.getFeature(eClass, namespaceURI, name, isElement);
+      if (emdFeature) {
+        this.computeFeatureKind(emdFeature);
+        return emdFeature;
+      }
+    }
+
     return this.getFeature(eClass, namespaceURI, name);
   }
 
   getSerializedFeatureName(feature: EStructuralFeature): string {
+    // EMD name takes precedence
+    if (this.extendedMetaData) {
+      const emdName = this.extendedMetaData.getName(feature);
+      if (emdName && !emdName.startsWith(':')) {
+        return emdName;
+      }
+    }
+
     const name = feature.getName() || '';
     if (this.featureNameMap.size > 0) {
       const mapped = this.featureNameMap.get(name);

@@ -19,6 +19,14 @@ import { XMLHelper, XMLHelperImpl } from './XMLHelper.js';
 import { XSI_URI, XMI_URI } from './XMLHandler.js';
 import { isEList } from '../EList.js';
 import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
+import {
+  ExtendedMetaData,
+  SIMPLE_CONTENT,
+  SIMPLE_FEATURE,
+  ELEMENT_FEATURE,
+  ATTRIBUTE_FEATURE,
+  UNSPECIFIED_FEATURE
+} from './ExtendedMetaData.js';
 
 /**
  * XMLSave - Serializes EObjects to XML/XMI format
@@ -140,10 +148,25 @@ export class XMLSave {
     // Write attributes
     this.writeAttributes(obj);
 
+    // Check for simple content (EMD kind="simple")
+    const emd = this.helper.getExtendedMetaData();
+    const simpleText = this.getSimpleContentText(obj, emd);
+
     // Check for content
     const hasContent = this.hasElementContent(obj);
 
-    if (hasContent) {
+    if (simpleText !== null) {
+      // Simple content: write text directly
+      this.output.push(`>${this.escapeXml(simpleText)}`);
+      if (hasContent) {
+        this.output.push('\n');
+        this.indent++;
+        this.writeElements(obj);
+        this.indent--;
+        this.writeIndent();
+      }
+      this.output.push(`</${qName}>\n`);
+    } else if (hasContent) {
       this.output.push('>\n');
       this.indent++;
 
@@ -193,6 +216,59 @@ export class XMLSave {
         writtenPrefixes.add(prefix);
       }
     }
+
+    // Collect and write EMD namespace declarations
+    const emd = this.helper.getExtendedMetaData();
+    if (emd) {
+      this.collectEMDNamespaces(obj, emd, writtenPrefixes);
+    }
+  }
+
+  /**
+   * Collect and declare additional namespaces from EMD annotations.
+   */
+  protected collectEMDNamespaces(obj: EObject, emd: ExtendedMetaData, writtenPrefixes: Set<string>): void {
+    const collectFromObject = (o: EObject) => {
+      const eClass = o.eClass();
+      for (const feature of eClass.getEAllStructuralFeatures()) {
+        const ns = emd.getNamespace(feature);
+        if (ns && !this.declaredNamespaces.has(ns) && ns !== 'http://www.w3.org/XML/1998/namespace') {
+          // Generate a prefix from the namespace
+          const prefix = this.generatePrefix(ns, writtenPrefixes);
+          if (prefix) {
+            this.output.push(` xmlns:${prefix}="${ns}"`);
+            this.declaredNamespaces.set(ns, prefix);
+            writtenPrefixes.add(prefix);
+          }
+        }
+      }
+      for (const content of o.eContents()) {
+        collectFromObject(content);
+      }
+    };
+    collectFromObject(obj);
+  }
+
+  /**
+   * Generate a namespace prefix for a URI.
+   */
+  protected generatePrefix(nsURI: string, usedPrefixes: Set<string>): string | null {
+    // Try to extract a meaningful prefix from the URI
+    const lastSlash = nsURI.lastIndexOf('/');
+    let candidate = lastSlash >= 0 ? nsURI.substring(lastSlash + 1) : nsURI;
+    // Clean up
+    candidate = candidate.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    if (!candidate) candidate = 'ns';
+    if (candidate.length > 10) candidate = candidate.substring(0, 10);
+
+    if (!usedPrefixes.has(candidate)) return candidate;
+
+    // Add numeric suffix
+    for (let i = 1; i < 100; i++) {
+      const prefixed = `${candidate}${i}`;
+      if (!usedPrefixes.has(prefixed)) return prefixed;
+    }
+    return null;
   }
 
   /**
@@ -237,11 +313,21 @@ export class XMLSave {
    */
   protected writeAttributes(obj: EObject): void {
     const eClass = obj.eClass();
+    const emd = this.helper.getExtendedMetaData();
 
     for (const feature of eClass.getEAllStructuralFeatures()) {
       if (feature.isTransient() || feature.isDerived()) continue;
 
+      // Skip simple content feature (written as text content)
+      if (emd) {
+        const emdName = emd.getName(feature);
+        if (emdName === ':0') continue;
+      }
+
       if (this.isAttribute(feature)) {
+        // Skip EMD element features (written as elements in writeElements)
+        if (emd && emd.getFeatureKind(feature) === ELEMENT_FEATURE) continue;
+
         // Write EAttribute as attribute
         const attr = feature as EAttribute;
         let value = obj.eGet(attr);
@@ -260,7 +346,8 @@ export class XMLSave {
             }
             if (value !== defaultValue) {
               const stringValue = this.convertToString(attr, value);
-              this.output.push(` ${this.helper.getSerializedFeatureName(attr)}="${this.escapeXml(stringValue)}"`);
+              const attrName = this.getSerializedAttributeName(attr, emd);
+              this.output.push(` ${attrName}="${this.escapeXml(stringValue)}"`);
             }
           }
         }
@@ -482,11 +569,23 @@ export class XMLSave {
   }
 
   /**
-   * Check if object has element content (containments or multi-valued non-containment refs)
+   * Check if object has element content (containments, multi-valued non-containment refs, or EMD element features)
    */
   protected hasElementContent(obj: EObject): boolean {
     const eClass = obj.eClass();
     const features = eClass.getEAllStructuralFeatures();
+    const emd = this.helper.getExtendedMetaData();
+
+    // Check EMD element features (EAttributes written as elements)
+    if (emd) {
+      for (const feature of features) {
+        if (feature.isTransient() || feature.isDerived()) continue;
+        if (!this.isAttribute(feature)) continue;
+        if (emd.getFeatureKind(feature) !== ELEMENT_FEATURE) continue;
+        const value = obj.eGet(feature);
+        if (value !== null && value !== undefined) return true;
+      }
+    }
 
     for (const feature of features) {
       if ('isContainment' in feature) {
@@ -520,6 +619,38 @@ export class XMLSave {
    */
   protected writeElements(obj: EObject): void {
     const eClass = obj.eClass();
+    const emd = this.helper.getExtendedMetaData();
+
+    // Write EAttribute features annotated as kind="element" (EMD element features)
+    if (emd) {
+      for (const feature of eClass.getEAllStructuralFeatures()) {
+        if (feature.isTransient() || feature.isDerived()) continue;
+        if (!this.isAttribute(feature)) continue;
+
+        const fKind = emd.getFeatureKind(feature);
+        if (fKind !== ELEMENT_FEATURE) continue;
+
+        const value = obj.eGet(feature);
+        if (value === null || value === undefined) continue;
+
+        const elemName = this.getSerializedElementName(feature, emd);
+        const attr = feature as EAttribute;
+
+        if (feature.isMany() && (Array.isArray(value) || isEList(value))) {
+          for (const item of value) {
+            if (item !== null && item !== undefined) {
+              this.writeIndent();
+              const strVal = this.convertSingleValueToString(attr, item);
+              this.output.push(`<${elemName}>${this.escapeXml(strVal)}</${elemName}>\n`);
+            }
+          }
+        } else {
+          this.writeIndent();
+          const strVal = this.convertToString(attr, value);
+          this.output.push(`<${elemName}>${this.escapeXml(strVal)}</${elemName}>\n`);
+        }
+      }
+    }
 
     for (const feature of eClass.getEAllStructuralFeatures()) {
       if ('isContainment' in feature) {
@@ -561,7 +692,8 @@ export class XMLSave {
    * Write a single element
    */
   protected writeElement(feature: EReference, value: EObject): void {
-    const featureName = this.helper.getSerializedFeatureName(feature) || 'element';
+    const emd = this.helper.getExtendedMetaData();
+    const featureName = this.getSerializedElementName(feature, emd) || 'element';
 
     this.writeIndent();
     this.output.push(`<${featureName}`);
@@ -583,10 +715,23 @@ export class XMLSave {
     // Write attributes
     this.writeAttributes(value);
 
+    // Check for simple content
+    const simpleText = this.getSimpleContentText(value, emd);
+
     // Check for nested content
     const hasContent = this.hasElementContent(value);
 
-    if (hasContent) {
+    if (simpleText !== null) {
+      this.output.push(`>${this.escapeXml(simpleText)}`);
+      if (hasContent) {
+        this.output.push('\n');
+        this.indent++;
+        this.writeElements(value);
+        this.indent--;
+        this.writeIndent();
+      }
+      this.output.push(`</${featureName}>\n`);
+    } else if (hasContent) {
       this.output.push('>\n');
       this.indent++;
 
@@ -731,6 +876,82 @@ export class XMLSave {
     }
 
     return String(value);
+  }
+
+  /**
+   * Get the text content for a simple-content class, or null if not applicable.
+   */
+  protected getSimpleContentText(obj: EObject, emd: ExtendedMetaData | null): string | null {
+    if (!emd) return null;
+
+    const eClass = obj.eClass();
+    if (emd.getContentKind(eClass) !== SIMPLE_CONTENT) return null;
+
+    const simpleFeature = emd.getSimpleContentFeature(eClass);
+    if (!simpleFeature) return null;
+
+    const value = obj.eGet(simpleFeature);
+    if (value === null || value === undefined) return null;
+
+    if (typeof value === 'string') return value;
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    if (typeof value === 'number') return String(value);
+
+    return String(value);
+  }
+
+  /**
+   * Get the serialized attribute name, including namespace prefix if EMD specifies one.
+   */
+  protected getSerializedAttributeName(feature: EStructuralFeature, emd: ExtendedMetaData | null): string {
+    if (emd) {
+      const ns = emd.getNamespace(feature);
+      const name = emd.getName(feature) ?? feature.getName() ?? '';
+      if (ns) {
+        const prefix = this.getNamespacePrefix(ns);
+        if (prefix) {
+          return `${prefix}:${name}`;
+        }
+      }
+      if (name && !name.startsWith(':')) {
+        return name;
+      }
+    }
+    return this.helper.getSerializedFeatureName(feature);
+  }
+
+  /**
+   * Get the serialized element name, including namespace prefix if EMD specifies one.
+   */
+  protected getSerializedElementName(feature: EStructuralFeature, emd: ExtendedMetaData | null): string {
+    if (emd) {
+      const ns = emd.getNamespace(feature);
+      const name = emd.getName(feature) ?? feature.getName() ?? '';
+      if (ns) {
+        const prefix = this.getNamespacePrefix(ns);
+        if (prefix) {
+          return `${prefix}:${name}`;
+        }
+      }
+      if (name && !name.startsWith(':')) {
+        return name;
+      }
+    }
+    return this.helper.getSerializedFeatureName(feature);
+  }
+
+  /**
+   * Get or create a namespace prefix for the given URI.
+   */
+  protected getNamespacePrefix(nsURI: string): string | null {
+    // Check already declared namespaces
+    const existing = this.declaredNamespaces.get(nsURI);
+    if (existing) return existing;
+
+    // Well-known namespaces
+    if (nsURI === 'http://www.w3.org/XML/1998/namespace') return 'xml';
+
+    return null;
   }
 
   /**
