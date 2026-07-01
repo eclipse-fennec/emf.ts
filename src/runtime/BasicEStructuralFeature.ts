@@ -104,18 +104,63 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
           return this.eType;
         }
 
-        // Fallback: resolve directly via global package registry
+        // Fallback: resolve directly via package registry
         const uriStr = proxyURI.toString();
         const hashIndex = uriStr.indexOf('#');
         if (hashIndex > 0) {
-          const nsURI = uriStr.substring(0, hashIndex);
+          const baseURI = uriStr.substring(0, hashIndex);
           const fragment = uriStr.substring(hashIndex + 1);
-          const pkg = EPackageRegistry.INSTANCE.getEPackage(nsURI);
-          if (pkg) {
-            const classifier = resolveClassifierInPackage(pkg, fragment);
-            if (classifier) {
-              this.eType = classifier;
-              return this.eType;
+
+          // Try to find ResourceSet: via eResource, or by walking up the
+          // eContainer chain to find a package with a registered ResourceSet
+          const registries = [EPackageRegistry.INSTANCE];
+          let rs = this.eResource()?.getResourceSet();
+          if (!rs) {
+            // Walk up container chain to find a package → resource → resourceSet
+            let container: any = this.eContainingClass;
+            while (container) {
+              if (typeof container.eResource === 'function') {
+                const res = container.eResource();
+                if (res) {
+                  rs = res.getResourceSet();
+                  break;
+                }
+              }
+              // Try ePackage for EClass, eSuperPackage for EPackage
+              container = container.getEPackage?.() ?? container.getESuperPackage?.() ?? container.eContainer?.();
+            }
+          }
+          if (rs) registries.push(rs.getPackageRegistry());
+
+          for (const registry of registries) {
+            // Direct nsURI match
+            const pkg = registry.getEPackage(baseURI);
+            if (pkg) {
+              const classifier = resolveClassifierInPackage(pkg, fragment);
+              if (classifier) {
+                this.eType = classifier;
+                return this.eType;
+              }
+            }
+
+            // Package name match: "foaf.ecore" → package named "foaf"
+            let baseName = baseURI;
+            const lastSlash = baseName.lastIndexOf('/');
+            if (lastSlash >= 0) baseName = baseName.substring(lastSlash + 1);
+            const dotIndex = baseName.indexOf('.');
+            if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
+
+            if (baseName) {
+              for (const nsKey of registry.keys()) {
+                const regPkg = registry.getEPackage(nsKey);
+                if (regPkg && regPkg.getName() === baseName) {
+                  const classifier = resolveClassifierInPackage(regPkg, fragment);
+                  if (classifier) {
+                    this.eType = classifier;
+                    return this.eType;
+                  }
+                }
+              }
             }
           }
         }

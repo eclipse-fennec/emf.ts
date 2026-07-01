@@ -197,6 +197,15 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
           return resolved;
         }
       }
+
+      // Fallback: try package registry (nsURI-based lookup)
+      // This handles cases where the package was registered but the resource is empty
+      // (e.g., foaf.ecore#//Agent → find package with nsURI from foaf.ecore, resolve Agent there)
+      const packageRegistry = resourceSet.getPackageRegistry();
+      const resolved = this.resolveFragmentViaPackageRegistry(packageRegistry, resourceURIStr, fragment, resourceSet);
+      if (resolved) {
+        return resolved;
+      }
     } else if (hashIndex === 0) {
       // Same-resource reference (starts with #)
       const fragment = uriStr.substring(1);
@@ -214,6 +223,77 @@ export abstract class BasicEObject implements InternalEObject, Notifier {
 
     // Cannot resolve - return proxy
     return proxy;
+  }
+
+  /**
+   * Resolve a fragment via the package registry.
+   * When a proxy like foaf.ecore#//Agent can't be resolved through the resource
+   * (e.g., because the resource is empty after package registration), try to
+   * find the correct package in the registry.
+   */
+  private resolveFragmentViaPackageRegistry(
+    packageRegistry: import('../EPackage.js').EPackageRegistry,
+    resourceURIStr: string,
+    fragment: string,
+    resourceSet: import('../ResourceSet.js').ResourceSet
+  ): EObject | null {
+    // Try direct nsURI lookup (works when resourceURIStr is the actual nsURI)
+    const directPkg = packageRegistry.getEPackage(resourceURIStr);
+    if (directPkg) {
+      const resolved = this.resolveFragmentInPackage(directPkg, fragment);
+      if (resolved) return resolved;
+    }
+
+    // Extract package name from resource URI filename:
+    // "foaf.ecore" → "foaf", "path/to/terms.ecore" → "terms"
+    let baseName = resourceURIStr;
+    const lastSlash = baseName.lastIndexOf('/');
+    if (lastSlash >= 0) baseName = baseName.substring(lastSlash + 1);
+    const dotIndex = baseName.indexOf('.');
+    if (dotIndex > 0) baseName = baseName.substring(0, dotIndex);
+
+    // Search registry for a package whose name matches the filename
+    if (baseName) {
+      for (const nsKey of packageRegistry.keys()) {
+        const pkg = packageRegistry.getEPackage(nsKey);
+        if (pkg && pkg.getName() === baseName) {
+          const resolved = this.resolveFragmentInPackage(pkg, fragment);
+          if (resolved) return resolved;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve a fragment path (e.g., //Agent or //sub/Agent) within an EPackage.
+   */
+  private resolveFragmentInPackage(pkg: import('../EPackage.js').EPackage, fragment: string): EObject | null {
+    let path = fragment;
+    while (path.startsWith('/')) path = path.substring(1);
+    if (!path) return null;
+
+    const segments = path.split('/');
+
+    // Navigate subpackages for all but last segment
+    let currentPkg = pkg;
+    for (let i = 0; i < segments.length - 1; i++) {
+      const subPackages = currentPkg.getESubpackages();
+      let found: import('../EPackage.js').EPackage | null = null;
+      for (let j = 0; j < subPackages.length; j++) {
+        if (subPackages.get(j).getName() === segments[i]) {
+          found = subPackages.get(j);
+          break;
+        }
+      }
+      if (!found) return null;
+      currentPkg = found;
+    }
+
+    const classifierName = segments[segments.length - 1];
+    const classifier = currentPkg.getEClassifier(classifierName);
+    return classifier as unknown as EObject ?? null;
   }
 
   /**
