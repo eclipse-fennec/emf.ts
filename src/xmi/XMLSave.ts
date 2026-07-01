@@ -49,6 +49,13 @@ export class XMLSave {
    * Save resource to string
    */
   save(resource: Resource, options?: Map<string, any>): string {
+    return this.saveObjects(resource, resource.getContents(), options);
+  }
+
+  /**
+   * Save a specific set of objects using the given resource for reference resolution.
+   */
+  saveObjects(resource: Resource, objects: Iterable<EObject>, options?: Map<string, any>): string {
     this.resource = resource;
     this.output = [];
     this.declaredNamespaces.clear();
@@ -61,13 +68,13 @@ export class XMLSave {
     // XML declaration
     this.output.push('<?xml version="1.0" encoding="UTF-8"?>\n');
 
-    const contents = resource.getContents();
+    const objectArray = Array.isArray(objects) ? objects : [...objects];
 
-    if (contents.length > 1) {
+    if (objectArray.length > 1) {
       // Multiple root objects: wrap in <xmi:XMI> container per XMI 2.x spec
-      this.saveMultipleRoots(contents);
+      this.saveMultipleRoots(objectArray);
     } else {
-      for (const root of contents) {
+      for (const root of objectArray) {
         this.saveObject(root, true);
       }
     }
