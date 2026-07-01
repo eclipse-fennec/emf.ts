@@ -1237,6 +1237,63 @@ describe('XMI Serialization', () => {
     });
   });
 
+  describe('Resource.saveContents subset serialization (#59)', () => {
+    it('should serialize a subset of objects with correct cross-references', () => {
+      const resource = new XMIResource(URI.createURI('test://subset.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+
+      const person1 = factory.create(personClass);
+      person1.eSet(personClass.getEStructuralFeature('name')!, 'Alice');
+
+      const person2 = factory.create(personClass);
+      person2.eSet(personClass.getEStructuralFeature('name')!, 'Bob');
+
+      const address = factory.create(addressClass);
+      address.eSet(addressClass.getEStructuralFeature('street')!, 'Main St');
+
+      resource.getContents().push(person1);
+      resource.getContents().push(person2);
+      resource.getContents().push(address);
+
+      resource.setID(person1, '_p1');
+      resource.setID(person2, '_p2');
+      resource.setID(address, '_a1');
+
+      // person1 references address (same resource)
+      person1.eSet(personClass.getEStructuralFeature('primaryAddress')!, address);
+
+      // Serialize only person1 and address (not person2)
+      const xml = resource.saveContents([person1, address]);
+      console.log('Subset XML:', xml);
+
+      // Should contain person1 and address
+      expect(xml).toContain('name="Alice"');
+      expect(xml).toContain('street="Main St"');
+      // Should NOT contain person2
+      expect(xml).not.toContain('name="Bob"');
+      // Cross-reference should be fragment-only (same resource context)
+      expect(xml).toContain('#_a1');
+      expect(xml).not.toContain('subset.xmi#');
+    });
+
+    it('should serialize a single object without xmi:XMI wrapper', () => {
+      const resource = new XMIResource(URI.createURI('test://single.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'Solo');
+      resource.getContents().push(person);
+
+      const xml = resource.saveContents([person]);
+
+      expect(xml).toContain('name="Solo"');
+      expect(xml).not.toContain('<xmi:XMI');
+    });
+  });
+
   describe('Self-referencing URI resolution (#58)', () => {
     it('should resolve self-referencing href without URI doubling', () => {
       // Simulate: XMI file with self-referencing href (resource name in reference)

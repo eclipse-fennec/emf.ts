@@ -149,6 +149,17 @@ export class XMLResource extends BasicResource {
   }
 
   /**
+   * Save a subset of objects to XML string.
+   * Uses this resource's context (IDs, reference resolution) but only
+   * serializes the given objects as root elements.
+   */
+  saveContents(objects: EObject[], options?: Map<string, any>): string {
+    const opts = options || new Map();
+    const saver = this.createXMLSave();
+    return saver.saveObjects(this, objects, opts);
+  }
+
+  /**
    * Unload resource
    */
   unload(): void {
