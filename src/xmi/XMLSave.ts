@@ -436,13 +436,11 @@ export class XMLSave {
     if (resource) {
       const fragment = resource.getURIFragment(obj);
       if (fragment) {
-        // Same resource: use fragment-only reference
-        // Path-based fragments (/0, /0/@features.1) always start with /
-        // and are written without # (SAME_DOC / getIDREF style).
-        // ID-based fragments (xmi:id values like _myId) never start with /
-        // and get # prefix.
+        // Same resource: return bare fragment (IDREF style, no # prefix)
+        // Java EMF's getIDREF() returns bare ID for same-document refs.
+        // Both path-based (/0) and ID-based (_myId) are written without #.
         if (resource === this.resource) {
-          return fragment.startsWith('/') ? fragment : `#${fragment}`;
+          return fragment;
         }
         // Different resource: use full URI
         const uri = resource.getURI();
@@ -554,7 +552,12 @@ export class XMLSave {
     const href = this.getHref(value);
     if (!href) return null;
 
-    // Only add type prefix for cross-document refs (not starting with / or #)
+    // Same-document refs: no type prefix needed.
+    // Same-doc refs are bare fragments (path-based /0 or ID-based _myId)
+    // or start with # (intra-resource like #//ClassName).
+    // Cross-doc refs contain :// or # with a base URI before it.
+    const valueResource = value.eResource?.();
+    if (valueResource && valueResource === this.resource) return href;
     if (href.startsWith('/') || href.startsWith('#')) return href;
 
     const declaredType = ref.getEType();

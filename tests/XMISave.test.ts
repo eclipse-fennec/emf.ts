@@ -1169,8 +1169,8 @@ describe('XMI Serialization', () => {
     });
   });
 
-  describe('ID-based same-resource references (#57)', () => {
-    it('should write # prefix for xmi:id-based same-resource references', () => {
+  describe('Same-resource reference formats (Java EMF conformance)', () => {
+    it('SAME_DOC + ID-based: bare ID without # (IDREF style)', () => {
       const resource = new XMIResource(URI.createURI('test://id-ref.xmi'));
       resource.setResourceSet(resourceSet);
 
@@ -1185,23 +1185,45 @@ describe('XMI Serialization', () => {
       resource.getContents().push(person);
       resource.getContents().push(address);
 
-      // Set xmi:id on the address
       resource.setID(address, '_addr_1');
-
-      // Set non-containment reference
       person.eSet(personClass.getEStructuralFeature('primaryAddress')!, address);
 
       const xml = resource.saveToString();
-      console.log('ID-based ref XML:', xml);
+      console.log('SAME_DOC ID-based XML:', xml);
 
-      // ID-based fragment must have # prefix
-      expect(xml).toContain('primaryAddress="#_addr_1"');
-      // Must NOT be without #
-      expect(xml).not.toContain('primaryAddress="/_addr_1"');
+      // IDREF style: bare ID, no # prefix
+      expect(xml).toContain('primaryAddress="_addr_1"');
+      expect(xml).not.toContain('primaryAddress="#_addr_1"');
     });
 
-    it('should round-trip ID-based references', () => {
-      const resource = new XMIResource(URI.createURI('test://id-roundtrip.xmi'));
+    it('SAME_DOC + path-based: bare path without # (IDREF style)', () => {
+      const resource = new XMIResource(URI.createURI('test://path-ref.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'Alice');
+
+      const address = factory.create(addressClass);
+      address.eSet(addressClass.getEStructuralFeature('street')!, 'Oak Ave');
+
+      // No xmi:id set — will use path-based fragment (/1)
+      resource.getContents().push(person);
+      resource.getContents().push(address);
+
+      person.eSet(personClass.getEStructuralFeature('primaryAddress')!, address);
+
+      const xml = resource.saveToString();
+      console.log('SAME_DOC path-based XML:', xml);
+
+      // Path-based: bare /1, no # prefix
+      expect(xml).toMatch(/primaryAddress="\/1"/);
+      expect(xml).not.toContain('primaryAddress="#/1"');
+    });
+
+    it('SAME_DOC round-trip: bare ID survives load→save', () => {
+      const resource = new XMIResource(URI.createURI('test://roundtrip.xmi'));
       resource.setResourceSet(resourceSet);
 
       const factory = testPackage.getEFactoryInstance();
@@ -1220,11 +1242,10 @@ describe('XMI Serialization', () => {
 
       person.eSet(personClass.getEStructuralFeature('primaryAddress')!, address);
 
-      // Save
+      // Save → Load → verify
       const xml = resource.saveToString();
 
-      // Reload
-      const resource2 = new XMIResource(URI.createURI('test://id-roundtrip2.xmi'));
+      const resource2 = new XMIResource(URI.createURI('test://roundtrip2.xmi'));
       resource2.setResourceSet(resourceSet);
       resource2.loadFromString(xml);
 
@@ -1234,6 +1255,27 @@ describe('XMI Serialization', () => {
       const loadedAddr = loadedPerson.eGet(personClass.getEStructuralFeature('primaryAddress')!);
       expect(loadedAddr).not.toBeNull();
       expect(loadedAddr.eGet(addressClass.getEStructuralFeature('street')!)).toBe('Oak Ave');
+    });
+
+    it('CROSS_DOC proxy: deresolve produces relative URI with #', () => {
+      // Proxy pointing to another resource — should keep full URI with #
+      const resource = new XMIResource(URI.createURI('test://cross-doc.xmi'));
+      resource.setResourceSet(resourceSet);
+
+      const factory = testPackage.getEFactoryInstance();
+      const person = factory.create(personClass);
+      person.eSet(personClass.getEStructuralFeature('name')!, 'Cross');
+      resource.getContents().push(person);
+
+      // Create a proxy pointing to other.xmi#_addr_ext
+      const proxy = new EProxyImpl(URI.createURI('other.xmi#_addr_ext'), addressClass);
+      person.eSet(personClass.getEStructuralFeature('primaryAddress')!, proxy);
+
+      const xml = resource.saveToString();
+      console.log('CROSS_DOC proxy XML:', xml);
+
+      // Cross-doc: full URI with #
+      expect(xml).toContain('other.xmi#_addr_ext');
     });
   });
 
@@ -1273,9 +1315,10 @@ describe('XMI Serialization', () => {
       expect(xml).toContain('street="Main St"');
       // Should NOT contain person2
       expect(xml).not.toContain('name="Bob"');
-      // Cross-reference should be fragment-only (same resource context)
-      expect(xml).toContain('#_a1');
+      // Cross-reference should be bare IDREF (same resource context, no #)
+      expect(xml).toContain('_a1');
       expect(xml).not.toContain('subset.xmi#');
+      expect(xml).not.toContain('#_a1');
     });
 
     it('should serialize a single object without xmi:XMI wrapper', () => {
@@ -1296,11 +1339,10 @@ describe('XMI Serialization', () => {
 
   describe('Self-referencing URI resolution (#58)', () => {
     it('should resolve self-referencing href without URI doubling', () => {
-      // Simulate: XMI file with self-referencing href (resource name in reference)
       const resource = new XMIResource(URI.createURI('instances/instances.xmi'));
       resource.setResourceSet(resourceSet);
 
-      // XML contains self-referencing href: instances/instances.xmi#/_dim1
+      // XML contains self-referencing href: instances/instances.xmi#_addr1
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <xmi:XMI xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:test="http://test.com/model">
   <test:Address xmi:id="_addr1" street="Main St" city="Springfield"/>
@@ -1314,16 +1356,15 @@ describe('XMI Serialization', () => {
 
       const addr = person.eGet(personClass.getEStructuralFeature('primaryAddress')!);
       expect(addr).not.toBeNull();
-      // Must resolve to the Address in the SAME resource, not a different one
+      // Must resolve to the Address in the SAME resource
       expect(addr.eResource()).toBe(resource);
       expect(addr.eGet(addressClass.getEStructuralFeature('street')!)).toBe('Main St');
     });
 
-    it('should save self-resolved references as fragment-only', () => {
+    it('should save self-resolved references as bare IDREF', () => {
       const resource = new XMIResource(URI.createURI('instances/instances.xmi'));
       resource.setResourceSet(resourceSet);
 
-      // Load with self-referencing href
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <xmi:XMI xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:test="http://test.com/model">
   <test:Address xmi:id="_addr1" street="Main St" city="Springfield"/>
@@ -1332,14 +1373,15 @@ describe('XMI Serialization', () => {
 
       resource.loadFromString(xml);
 
-      // Re-save — self-references must be written as fragment-only (#_addr1)
+      // Re-save — self-references must be bare IDREF (no # prefix, no resource path)
       const saved = resource.saveToString();
       console.log('Self-ref save:', saved);
 
-      // Must NOT contain the resource path in the reference
+      // Must NOT contain the resource path
       expect(saved).not.toContain('instances/instances.xmi#');
-      // Must contain fragment-only reference
-      expect(saved).toContain('#_addr1');
+      // Must contain bare IDREF (no #)
+      expect(saved).toContain('primaryAddress="_addr1"');
+      expect(saved).not.toContain('primaryAddress="#_addr1"');
     });
   });
 });
