@@ -10,7 +10,7 @@ import { EObject } from './EObject.js';
 import { EClass } from './EClass.js';
 import { EStructuralFeature } from './EStructuralFeature.js';
 import { EReference } from './EReference.js';
-import { EList, EObjectContainmentEList, BasicEList } from './EList.js';
+import { EList, EObjectContainmentEList, BasicEList, createIndexedProxy } from './EList.js';
 import { DynamicEObject } from './runtime/BasicEObject.js';
 
 /**
@@ -81,6 +81,8 @@ class EMapContainmentEList<K, V> extends EObjectContainmentEList<EObject> {
  * The map index is maintained via didAdd/didRemove callbacks from the delegate list.
  */
 export class BasicEMap<K, V> implements EMap<K, V> {
+  [index: number]: EObject;
+
   private delegateList: EMapContainmentEList<K, V>;
   private mapIndex: Map<K, EObject> | null = null;
   private keyFeature: EStructuralFeature;
@@ -100,6 +102,9 @@ export class BasicEMap<K, V> implements EMap<K, V> {
     }
     this.keyFeature = keyF;
     this.valueFeature = valueF;
+
+    // Same index-access contract as every other EList, see BasicEList.
+    return createIndexedProxy<EObject, BasicEMap<K, V>>(this) as BasicEMap<K, V>;
   }
 
   /**
@@ -255,61 +260,31 @@ export class BasicEMap<K, V> implements EMap<K, V> {
   }
   includes(element: EObject): boolean { return this.delegateList.includes(element); }
   slice(start?: number, end?: number): EObject[] { return this.delegateList.slice(start, end); }
+  concat(...items: (EObject | EObject[] | EList<EObject>)[]): EObject[] { return this.delegateList.concat(...items); }
+  sort(compareFn?: (a: EObject, b: EObject) => number): this { this.delegateList.sort(compareFn); return this; }
+  reverse(): this { this.delegateList.reverse(); return this; }
+  join(separator?: string): string { return this.delegateList.join(separator); }
+  at(index: number): EObject | undefined { return this.delegateList.at(index); }
+  lastIndexOf(element: EObject): number { return this.delegateList.lastIndexOf(element); }
+  flatMap<U>(callback: (value: EObject, index: number, array: EObject[]) => U | U[], thisArg?: any): U[] {
+    return this.delegateList.flatMap(callback, thisArg);
+  }
+  toJSON(): EObject[] { return this.delegateList.toJSON(); }
 }
 
 /**
- * Creates an EMap with a Proxy for array-like index access.
- * Unlike createIndexedProxy (which constrains on BasicEList), this
- * creates a proxy specifically for BasicEMap.
+ * Creates an EMap with array-like index access.
+ *
+ * BasicEMap installs the index-access Proxy in its own constructor, so this is
+ * a plain factory now; it is kept because it is the documented way to obtain an
+ * EMap.
  */
 export function createEMap<K, V>(
   owner: EObject,
   feature: EReference,
   entryEClass: EClass
 ): EMap<K, V> & { [index: number]: EObject } {
-  const eMap = new BasicEMap<K, V>(owner, feature, entryEClass);
-
-  return new Proxy(eMap, {
-    get(target, prop, receiver) {
-      if (typeof prop === 'string') {
-        const index = parseInt(prop, 10);
-        if (!isNaN(index) && index >= 0) {
-          if (index < target.size()) {
-            return target.get(index);
-          }
-          return undefined;
-        }
-      }
-      return Reflect.get(target, prop, receiver);
-    },
-    set(target, prop, value, receiver) {
-      if (prop === 'length') {
-        const newLength = typeof value === 'number' ? value : parseInt(value, 10);
-        if (newLength === 0) {
-          target.clear();
-          return true;
-        }
-        while (target.size() > newLength) {
-          target.removeAt(target.size() - 1);
-        }
-        return true;
-      }
-      if (typeof prop === 'string') {
-        const index = parseInt(prop, 10);
-        if (!isNaN(index) && index >= 0) {
-          if (index < target.size()) {
-            target.set(index, value);
-            return true;
-          } else if (index === target.size()) {
-            target.add(value);
-            return true;
-          }
-          return false;
-        }
-      }
-      return Reflect.set(target, prop, value, receiver);
-    }
-  }) as unknown as EMap<K, V> & { [index: number]: EObject };
+  return new BasicEMap<K, V>(owner, feature, entryEClass) as EMap<K, V> & { [index: number]: EObject };
 }
 
 /**

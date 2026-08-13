@@ -15,8 +15,22 @@ import { Notification, NotificationImpl, NotificationType, NotificationEventType
 /**
  * EList interface - A list that sends notifications on modifications.
  * This mirrors Java EMF's EList interface.
+ *
+ * An EList is indexable and iterable, but it is deliberately **not** an Array:
+ * `Array.isArray(eList)` returns `false`. The list guarantees that every
+ * mutation emits a notification, which a real Array cannot do - inheriting from
+ * Array would expose the `length` setter and raw index assignment, both of
+ * which bypass every interceptor. This mirrors the position of `NodeList` and
+ * `HTMLCollection` in the DOM. Use `Array.from(list)` when a real Array is
+ * required.
  */
 export interface EList<T> extends Iterable<T> {
+  /**
+   * Array-compatible index access. Reads return the element at the index,
+   * writes are routed through {@link set} so notifications are still sent.
+   */
+  [index: number]: T;
+
   /**
    * Returns the number of elements in the list.
    */
@@ -160,6 +174,52 @@ export interface EList<T> extends Iterable<T> {
    * Array-compatible slice method.
    */
   slice(start?: number, end?: number): T[];
+
+  /**
+   * Array-compatible concat method. Does not modify the list.
+   */
+  concat(...items: (T | T[] | EList<T>)[]): T[];
+
+  /**
+   * Array-compatible sort method. Sorts the list in place and returns it.
+   * Emits a MOVE notification per relocated element, like ECollections.sort().
+   */
+  sort(compareFn?: (a: T, b: T) => number): this;
+
+  /**
+   * Array-compatible reverse method. Reverses the list in place and returns it.
+   */
+  reverse(): this;
+
+  /**
+   * Array-compatible join method.
+   */
+  join(separator?: string): string;
+
+  /**
+   * Array-compatible at method. Supports negative indices.
+   */
+  at(index: number): T | undefined;
+
+  /**
+   * Array-compatible lastIndexOf method.
+   */
+  lastIndexOf(element: T): number;
+
+  /**
+   * Array-compatible flatMap method.
+   */
+  flatMap<U>(callback: (value: T, index: number, array: T[]) => U | U[], thisArg?: any): U[];
+
+  // NOTE: keys()/values()/entries() are deliberately absent. EMap extends
+  // EList and defines keys() with Map semantics (returning the map keys), so an
+  // Array-style keys() cannot coexist. Use Array.from(list).keys() if needed.
+
+  /**
+   * Serializes as a plain array, so `JSON.stringify(list)` yields `[...]`
+   * instead of exposing the internal structure (and dragging the owner along).
+   */
+  toJSON(): T[];
 }
 
 /**
@@ -178,6 +238,86 @@ export interface NotifyingEList<T> extends EList<T> {
 }
 
 /**
+ * Matches property keys that address a list position: "0", "1", "42".
+ * Deliberately strict - "01", "1.5", "-1" and "" are not index keys.
+ */
+const INDEX_KEY = /^(?:0|[1-9]\d*)$/;
+
+/**
+ * Marks a list that is already wrapped for index access, so that
+ * createIndexedProxy() does not stack a second Proxy on top.
+ */
+const IS_INDEXED = Symbol.for('emfts.indexedList');
+
+/**
+ * Proxy handler that maps numeric property keys onto list positions.
+ * Shared by all instances; it is stateless.
+ */
+const INDEX_ACCESS_HANDLER: ProxyHandler<any> = {
+  get(target, prop, receiver) {
+    if (prop === IS_INDEXED) {
+      return true;
+    }
+    if (typeof prop === 'string' && INDEX_KEY.test(prop)) {
+      const index = Number(prop);
+      // Fast path for implementations backed by a plain array.
+      const data: any[] | undefined = target.data;
+      if (data !== undefined) {
+        return data[index];
+      }
+      // Generic path (e.g. BasicEMap, which delegates): get() throws when out
+      // of bounds, but array semantics ask for undefined.
+      return index < target.size() ? target.get(index) : undefined;
+    }
+    return Reflect.get(target, prop, receiver);
+  },
+
+  set(target, prop, value, receiver) {
+    // Array-compatible truncation: list.length = 0 clears, a smaller length
+    // drops the tail. Each removal goes through the list, so notifications are
+    // still emitted - unlike the length setter of a real Array.
+    if (prop === 'length') {
+      const newLength = typeof value === 'number' ? value : parseInt(value, 10);
+      if (isNaN(newLength) || newLength < 0) {
+        throw new RangeError(`Invalid list length: ${String(value)}`);
+      }
+      if (newLength === 0) {
+        target.clear();
+      } else {
+        while (target.size() > newLength) {
+          target.removeAt(target.size() - 1);
+        }
+      }
+      return true;
+    }
+    if (typeof prop === 'string' && INDEX_KEY.test(prop)) {
+      const index = Number(prop);
+      const size = target.size();
+      if (index < size) {
+        target.set(index, value);
+      } else if (index === size) {
+        // Appending via list[list.length] = x is a common array idiom.
+        target.add(value);
+      } else {
+        throw new RangeError(
+          `Index ${index} out of bounds for list of size ${size}. ` +
+          `ELists do not support sparse assignment - use add() or push().`
+        );
+      }
+      return true;
+    }
+    return Reflect.set(target, prop, value, receiver);
+  },
+
+  has(target, prop) {
+    if (typeof prop === 'string' && INDEX_KEY.test(prop)) {
+      return Number(prop) < target.size();
+    }
+    return Reflect.has(target, prop);
+  },
+};
+
+/**
  * Basic EList implementation that sends notifications on modifications.
  * Similar to org.eclipse.emf.ecore.util.EObjectEList in Java EMF.
  *
@@ -185,6 +325,8 @@ export interface NotifyingEList<T> extends EList<T> {
  * for backwards compatibility with code that expects arrays.
  */
 export class BasicEList<T> implements NotifyingEList<T> {
+  [index: number]: T;
+
   protected data: T[] = [];
   protected owner: EObject | null;
   protected feature: EStructuralFeature | null;
@@ -192,6 +334,12 @@ export class BasicEList<T> implements NotifyingEList<T> {
   constructor(owner: EObject | null = null, feature: EStructuralFeature | null = null) {
     this.owner = owner;
     this.feature = feature;
+
+    // Numeric index access (list[0]) is provided through a Proxy rather than by
+    // extending Array: writes are routed through set()/add() so notifications
+    // are still emitted. Returning an object from a base constructor makes it
+    // the `this` of every subclass, so all EList subclasses inherit this.
+    return new Proxy(this, INDEX_ACCESS_HANDLER) as this;
   }
 
   // ===== Array-compatible properties and methods =====
@@ -351,6 +499,101 @@ export class BasicEList<T> implements NotifyingEList<T> {
    */
   slice(start?: number, end?: number): T[] {
     return this.data.slice(start, end);
+  }
+
+  /**
+   * Array-compatible concat method. Returns a new array, list is unchanged.
+   * Accepts single values, arrays and other ELists as arguments.
+   */
+  concat(...items: (T | T[] | EList<T>)[]): T[] {
+    const result = [...this.data];
+    for (const item of items) {
+      if (Array.isArray(item)) {
+        result.push(...item);
+      } else if (item instanceof BasicEList) {
+        result.push(...(item as BasicEList<T>).data);
+      } else {
+        result.push(item as T);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Array-compatible sort method. Sorts in place and returns the list.
+   *
+   * The reordering is applied through move(), so each relocated element emits a
+   * MOVE notification. This mirrors ECollections.sort() in Java EMF rather than
+   * silently rewriting the backing array.
+   */
+  sort(compareFn?: (a: T, b: T) => number): this {
+    this.reorderTo([...this.data].sort(compareFn));
+    return this;
+  }
+
+  /**
+   * Array-compatible reverse method. Reverses in place and returns the list.
+   * Emits MOVE notifications, see {@link sort}.
+   */
+  reverse(): this {
+    this.reorderTo([...this.data].reverse());
+    return this;
+  }
+
+  /**
+   * Rearranges the list to match the given order using move(), so that every
+   * relocation is observable. The order must be a permutation of the list.
+   */
+  protected reorderTo(order: T[]): void {
+    for (let i = 0; i < order.length; i++) {
+      if (this.data[i] === order[i]) {
+        continue;
+      }
+      // Positions below i are already final, so search from i onwards.
+      const from = this.data.indexOf(order[i], i);
+      if (from > i) {
+        this.move(i, from);
+      }
+    }
+  }
+
+  /**
+   * Array-compatible join method.
+   */
+  join(separator?: string): string {
+    return this.data.join(separator);
+  }
+
+  /**
+   * Array-compatible at method. Negative indices count from the end.
+   * Implemented directly rather than via Array.prototype.at, which the ES2020
+   * target of this project does not provide.
+   */
+  at(index: number): T | undefined {
+    const resolved = index < 0 ? this.data.length + index : index;
+    return resolved >= 0 && resolved < this.data.length ? this.data[resolved] : undefined;
+  }
+
+  /**
+   * Array-compatible lastIndexOf method.
+   */
+  lastIndexOf(element: T): number {
+    return this.data.lastIndexOf(element);
+  }
+
+  /**
+   * Array-compatible flatMap method.
+   */
+  flatMap<U>(callback: (value: T, index: number, array: T[]) => U | U[], thisArg?: any): U[] {
+    return this.data.flatMap((value, index) => callback.call(thisArg, value, index, this.data));
+  }
+
+  /**
+   * Makes JSON.stringify(list) produce a plain array. Without this the internal
+   * fields would be serialized, and `owner` would drag the whole model along.
+   */
+  toJSON(): T[] {
+    return [...this.data];
   }
 
   // ===== End Array-compatible methods =====
@@ -849,54 +1092,16 @@ export function isEList<T>(obj: any): obj is EList<T> {
 
 /**
  * Wraps an EList with a Proxy to enable array-like index access (list[0], list[1], etc.)
+ *
+ * Every EList now installs this Proxy in its own constructor, so this function
+ * is a no-op for lists created by this library and is kept for compatibility
+ * with existing call sites. Lists that arrive unwrapped are still wrapped here.
  */
-export function createIndexedProxy<T, L extends BasicEList<T>>(list: L): L & { [index: number]: T } {
-  return new Proxy(list, {
-    get(target, prop, receiver) {
-      // Handle numeric index access
-      if (typeof prop === 'string') {
-        const index = parseInt(prop, 10);
-        if (!isNaN(index) && index >= 0) {
-          if (index < target.size()) {
-            return target.get(index);
-          }
-          return undefined;
-        }
-      }
-      return Reflect.get(target, prop, receiver);
-    },
-    set(target, prop, value, receiver) {
-      // Handle 'length' property for array compatibility
-      if (prop === 'length') {
-        const newLength = typeof value === 'number' ? value : parseInt(value, 10);
-        if (newLength === 0) {
-          target.clear();
-          return true;
-        }
-        // Truncate list if needed
-        while (target.size() > newLength) {
-          target.removeAt(target.size() - 1);
-        }
-        return true;
-      }
-      // Handle numeric index assignment
-      if (typeof prop === 'string') {
-        const index = parseInt(prop, 10);
-        if (!isNaN(index) && index >= 0) {
-          if (index < target.size()) {
-            target.set(index, value);
-            return true;
-          } else if (index === target.size()) {
-            target.add(value);
-            return true;
-          }
-          // Index out of bounds for assignment
-          return false;
-        }
-      }
-      return Reflect.set(target, prop, value, receiver);
-    }
-  }) as L & { [index: number]: T };
+export function createIndexedProxy<T, L extends EList<T>>(list: L): L & { [index: number]: T } {
+  if ((list as any)[IS_INDEXED]) {
+    return list as L & { [index: number]: T };
+  }
+  return new Proxy(list, INDEX_ACCESS_HANDLER) as L & { [index: number]: T };
 }
 
 /**

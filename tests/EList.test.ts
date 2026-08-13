@@ -36,6 +36,8 @@ import {
   EcoreDataTypes,
   EList,
   isEList,
+  BasicEList,
+  createIndexedProxy,
 } from '../src';
 
 /**
@@ -736,6 +738,192 @@ describe('EList', () => {
       children.set(0, child);
 
       expect(adapter.notifications).toHaveLength(0);
+    });
+  });
+
+  /**
+   * Array compatibility (#68).
+   *
+   * An EList is indexable and iterable but deliberately not an Array - see the
+   * contract documented on the EList interface. These tests pin both halves:
+   * what an EList does provide, and the one thing it must keep refusing.
+   */
+  describe('Array compatibility (#68)', () => {
+    it('should support index reads on a directly constructed list', () => {
+      const list = new BasicEList<string>();
+      list.add('a');
+      list.add('b');
+
+      expect(list[0]).toBe('a');
+      expect(list[1]).toBe('b');
+      expect(list[2]).toBeUndefined();
+    });
+
+    it('should route index writes through set() so notifications are sent', () => {
+      const parent = factory.create(PersonClass);
+      const child1 = factory.create(PersonClass);
+      const child2 = factory.create(PersonClass);
+      const children = parent.eGet(childrenRef) as EList<EObject>;
+      children.add(child1);
+
+      const adapter = new RecordingAdapter();
+      (parent as any).eAdapterAdd(adapter);
+
+      children[0] = child2;
+
+      expect(children.get(0)).toBe(child2);
+      expect(adapter.notifications).toHaveLength(1);
+      expect(adapter.notifications[0].getEventType()).toBe(NotificationType.SET);
+    });
+
+    it('should append when assigning at list[length]', () => {
+      const parent = factory.create(PersonClass);
+      const child = factory.create(PersonClass);
+      const children = parent.eGet(childrenRef) as EList<EObject>;
+
+      const adapter = new RecordingAdapter();
+      (parent as any).eAdapterAdd(adapter);
+
+      children[0] = child;
+
+      expect(children.size()).toBe(1);
+      expect(adapter.notifications[0].getEventType()).toBe(NotificationType.ADD);
+    });
+
+    it('should reject sparse assignment beyond the end', () => {
+      const list = new BasicEList<string>();
+      list.add('a');
+
+      expect(() => {
+        list[5] = 'x';
+      }).toThrow(RangeError);
+    });
+
+    it('should clear the list when length is set to 0', () => {
+      const parent = factory.create(PersonClass);
+      const children = parent.eGet(childrenRef) as EList<EObject>;
+      children.add(factory.create(PersonClass));
+      children.add(factory.create(PersonClass));
+
+      const adapter = new RecordingAdapter();
+      (parent as any).eAdapterAdd(adapter);
+
+      (children as any).length = 0;
+
+      expect(children.size()).toBe(0);
+      expect(adapter.notifications.length).toBeGreaterThan(0);
+    });
+
+    it('should truncate the tail when length is reduced', () => {
+      const list = new BasicEList<string>();
+      list.addAll(['a', 'b', 'c']);
+
+      (list as any).length = 1;
+
+      expect(list.toArray()).toEqual(['a']);
+    });
+
+    it('should report the index via the in operator', () => {
+      const list = new BasicEList<string>();
+      list.add('a');
+
+      expect(0 in list).toBe(true);
+      expect(1 in list).toBe(false);
+    });
+
+    it('should serialize as a plain array', () => {
+      const list = new BasicEList<string>();
+      list.addAll(['a', 'b']);
+
+      expect(JSON.stringify(list)).toBe('["a","b"]');
+    });
+
+    it('should not serialize the internal owner and feature fields', () => {
+      // Without toJSON() this produced {"data":[...],"owner":...,"feature":...}
+      // and dragged the owning EObject into the output. Note that a list of
+      // EObjects can still not be stringified - EObjects are cyclic themselves
+      // via _eContainer, which is outside the scope of this list contract.
+      const person = factory.create(PersonClass);
+      const list = new BasicEList<string>(person, nameAttr);
+      list.addAll(['a', 'b']);
+
+      expect(JSON.stringify(list)).toBe('["a","b"]');
+      expect(list.toJSON()).toEqual(['a', 'b']);
+      expect(Array.isArray(list.toJSON())).toBe(true);
+    });
+
+    it('should concat values, arrays and other ELists', () => {
+      const list = new BasicEList<string>();
+      list.add('a');
+      const other = new BasicEList<string>();
+      other.add('d');
+
+      expect(list.concat('b', ['c'], other)).toEqual(['a', 'b', 'c', 'd']);
+      expect(list.toArray()).toEqual(['a']);
+    });
+
+    it('should sort in place and emit MOVE notifications', () => {
+      const parent = factory.create(PersonClass);
+      const children = parent.eGet(childrenRef) as EList<EObject>;
+      const c1 = factory.create(PersonClass);
+      const c2 = factory.create(PersonClass);
+      c1.eSet(nameAttr, 'B');
+      c2.eSet(nameAttr, 'A');
+      children.addAll([c1, c2]);
+
+      const adapter = new RecordingAdapter();
+      (parent as any).eAdapterAdd(adapter);
+
+      const result = children.sort((a, b) =>
+        String(a.eGet(nameAttr)).localeCompare(String(b.eGet(nameAttr)))
+      );
+
+      expect(result).toBe(children);
+      expect(children.get(0)).toBe(c2);
+      expect(adapter.notifications.some(n => n.getEventType() === NotificationType.MOVE)).toBe(true);
+    });
+
+    it('should reverse in place', () => {
+      const list = new BasicEList<string>();
+      list.addAll(['a', 'b', 'c']);
+
+      expect(list.reverse().toArray()).toEqual(['c', 'b', 'a']);
+    });
+
+    it('should provide join, at and lastIndexOf', () => {
+      const list = new BasicEList<string>();
+      list.addAll(['a', 'b', 'a']);
+
+      expect(list.join('-')).toBe('a-b-a');
+      expect(list.at(0)).toBe('a');
+      expect(list.at(-1)).toBe('a');
+      expect(list.at(3)).toBeUndefined();
+      expect(list.lastIndexOf('a')).toBe(2);
+    });
+
+    it('should provide flatMap', () => {
+      const list = new BasicEList<string>();
+      list.addAll(['a', 'b']);
+
+      expect(list.flatMap(v => [v, v.toUpperCase()])).toEqual(['a', 'A', 'b', 'B']);
+    });
+
+    it('should NOT be an Array', () => {
+      // Deliberate: inheriting from Array would expose the length setter and raw
+      // index assignment, both of which bypass notifications. Array.from() is
+      // the documented way to obtain a real array.
+      const list = new BasicEList<string>();
+      list.add('a');
+
+      expect(Array.isArray(list)).toBe(false);
+      expect(Array.from(list)).toEqual(['a']);
+      expect([...list]).toEqual(['a']);
+    });
+
+    it('should not stack a second proxy in createIndexedProxy', () => {
+      const list = new BasicEList<string>();
+
+      expect(createIndexedProxy(list)).toBe(list);
     });
   });
 });
