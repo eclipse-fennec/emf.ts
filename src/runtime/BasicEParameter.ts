@@ -6,24 +6,25 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EOperation } from '../EOperation.js';
+import { EParameter } from '../EParameter.js';
 import { EClass } from '../EClass.js';
 import { EClassifier } from '../EClassifier.js';
-import { EParameter } from '../EParameter.js';
+import { EOperation } from '../EOperation.js';
 import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 
 /**
- * Basic EOperation implementation
+ * Basic EParameter implementation.
+ *
+ * Used by EcoreFactory when loading .ecore files, so nested parameters arrive as
+ * typed objects rather than DynamicEObject (#66).
  */
-export class BasicEOperation extends BasicEObject implements EOperation {
+export class BasicEParameter extends BasicEObject implements EParameter {
   private name: string | null = null;
-  private eContainingClass: EClass | null = null;
   private eType: EClassifier | null = null;
-  private eParameters: EParameter[] = [];
-  private eExceptions: EClassifier[] = [];
+  private eOperation: EOperation | null = null;
   private eAnnotations: EAnnotation[] = [];
   private ordered: boolean = true;
   private unique: boolean = true;
@@ -38,14 +39,6 @@ export class BasicEOperation extends BasicEObject implements EOperation {
     this.name = value;
   }
 
-  getEContainingClass(): EClass | null {
-    return this.eContainingClass;
-  }
-
-  setEContainingClass(value: EClass | null): void {
-    this.eContainingClass = value;
-  }
-
   getEType(): EClassifier | null {
     return this.eType;
   }
@@ -54,20 +47,28 @@ export class BasicEOperation extends BasicEObject implements EOperation {
     this.eType = value;
   }
 
-  getEParameters(): EParameter[] {
-    return this.eParameters;
+  getEOperation(): EOperation | null {
+    return this.eOperation;
   }
 
-  addParameter(parameter: EParameter): void {
-    this.eParameters.push(parameter);
+  setEOperation(value: EOperation | null): void {
+    this.eOperation = value;
   }
 
-  getEExceptions(): EClassifier[] {
-    return this.eExceptions;
+  isOrdered(): boolean {
+    return this.ordered;
   }
 
-  addException(exception: EClassifier): void {
-    this.eExceptions.push(exception);
+  setOrdered(value: boolean): void {
+    this.ordered = value;
+  }
+
+  isUnique(): boolean {
+    return this.unique;
+  }
+
+  setUnique(value: boolean): void {
+    this.unique = value;
   }
 
   isMany(): boolean {
@@ -94,57 +95,6 @@ export class BasicEOperation extends BasicEObject implements EOperation {
     this.upperBound = value;
   }
 
-  getOperationID(): number {
-    if (!this.eContainingClass) return -1;
-    return this.eContainingClass.getOperationID(this);
-  }
-
-  isOverrideOf(someOperation: EOperation): boolean {
-    if (this.name !== someOperation.getName()) {
-      return false;
-    }
-
-    // Check parameter count
-    const myParams = this.eParameters;
-    const otherParams = someOperation.getEParameters();
-    if (myParams.length !== otherParams.length) {
-      return false;
-    }
-
-    // Check parameter types
-    for (let i = 0; i < myParams.length; i++) {
-      const myParamType = myParams[i].getEType();
-      const otherParamType = otherParams[i].getEType();
-      if (myParamType !== otherParamType) {
-        return false;
-      }
-    }
-
-    // Check if containing class is subtype
-    if (!this.eContainingClass || !someOperation.getEContainingClass()) {
-      return false;
-    }
-
-    return this.eContainingClass.getEAllSuperTypes().includes(someOperation.getEContainingClass()!);
-  }
-
-  isOrdered(): boolean {
-    return this.ordered;
-  }
-
-  setOrdered(value: boolean): void {
-    this.ordered = value;
-  }
-
-  isUnique(): boolean {
-    return this.unique;
-  }
-
-  setUnique(value: boolean): void {
-    this.unique = value;
-  }
-
-  // EObject methods
   getEAnnotations(): EAnnotation[] {
     return this.eAnnotations;
   }
@@ -154,7 +104,7 @@ export class BasicEOperation extends BasicEObject implements EOperation {
   }
 
   override eClass(): EClass {
-    return ecoreRegistry.getEOperationClass();
+    return ecoreRegistry.getEParameterClass();
   }
 
   /**
@@ -167,10 +117,6 @@ export class BasicEOperation extends BasicEObject implements EOperation {
         return this.name;
       case 'eType':
         return this.eType;
-      case 'eParameters':
-        return this.eParameters;
-      case 'eExceptions':
-        return this.eExceptions;
       case 'eAnnotations':
         return this.eAnnotations;
       case 'ordered':
@@ -194,16 +140,6 @@ export class BasicEOperation extends BasicEObject implements EOperation {
       case 'eType':
         this.eType = newValue;
         break;
-      case 'eParameters':
-        if (Array.isArray(newValue)) {
-          this.eParameters = newValue;
-        }
-        break;
-      case 'eExceptions':
-        if (Array.isArray(newValue)) {
-          this.eExceptions = newValue;
-        }
-        break;
       case 'eAnnotations':
         if (Array.isArray(newValue)) {
           this.eAnnotations = newValue;
@@ -223,44 +159,5 @@ export class BasicEOperation extends BasicEObject implements EOperation {
         break;
     }
     super.eSet(feature, newValue);
-  }
-}
-
-/**
- * Builder for creating EOperation instances
- */
-export class EOperationBuilder {
-  private op: BasicEOperation;
-
-  constructor(name: string, returnType?: EClassifier) {
-    this.op = new BasicEOperation();
-    this.op.setName(name);
-    if (returnType) {
-      this.op.setEType(returnType);
-    }
-  }
-
-  parameter(param: EParameter): this {
-    this.op.addParameter(param);
-    return this;
-  }
-
-  exception(exception: EClassifier): this {
-    this.op.addException(exception);
-    return this;
-  }
-
-  required(value: boolean = true): this {
-    this.op.setLowerBound(value ? 1 : 0);
-    return this;
-  }
-
-  many(value: boolean = true): this {
-    this.op.setUpperBound(value ? -1 : 1);
-    return this;
-  }
-
-  build(): EOperation {
-    return this.op;
   }
 }

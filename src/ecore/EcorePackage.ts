@@ -23,6 +23,8 @@ import { BasicEFactory } from '../runtime/BasicEFactory.js';
 import { BasicEAnnotation } from '../runtime/BasicEAnnotation.js';
 import { BasicEEnum } from '../runtime/BasicEEnum.js';
 import { BasicEEnumLiteral } from '../runtime/BasicEEnumLiteral.js';
+import { BasicEOperation } from '../runtime/BasicEOperation.js';
+import { BasicEParameter } from '../runtime/BasicEParameter.js';
 import { ecoreRegistry } from './EcoreRegistry.js';
 import { getXMLTypePackage } from './XMLTypePackage.js';
 
@@ -676,6 +678,10 @@ export class EcoreFactory extends BasicEFactory {
         return new BasicEAnnotation();
       case 'EPackage':
         return new BasicEPackage();
+      case 'EOperation':
+        return new BasicEOperation();
+      case 'EParameter':
+        return new BasicEParameter();
       default:
         return super.create(eClass);
     }
