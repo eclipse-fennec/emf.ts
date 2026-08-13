@@ -122,6 +122,26 @@ class EcoreClassRegistry {
   }
 
   /**
+   * Get the EClass for EGenericType
+   */
+  getEGenericTypeClass(): EClass {
+    if (!this._getEcorePackage) {
+      throw new Error('EcorePackage not registered. Import EcorePackage first.');
+    }
+    return this._getEcorePackage().getEGenericTypeClass();
+  }
+
+  /**
+   * Get the EClass for ETypeParameter
+   */
+  getETypeParameterClass(): EClass {
+    if (!this._getEcorePackage) {
+      throw new Error('EcorePackage not registered. Import EcorePackage first.');
+    }
+    return this._getEcorePackage().getETypeParameterClass();
+  }
+
+  /**
    * Get the EClass for EAnnotation
    */
   getEAnnotationClass(): EClass {

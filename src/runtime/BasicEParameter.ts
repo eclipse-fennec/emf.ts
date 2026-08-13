@@ -11,6 +11,7 @@ import { EClass } from '../EClass.js';
 import { EClassifier } from '../EClassifier.js';
 import { EOperation } from '../EOperation.js';
 import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EGenericType } from '../EGenericType.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
@@ -26,6 +27,7 @@ export class BasicEParameter extends BasicEObject implements EParameter {
   private eType: EClassifier | null = null;
   private eOperation: EOperation | null = null;
   private eAnnotations: EAnnotation[] = [];
+  private eGenericType: EGenericType | null = null;
   private ordered: boolean = true;
   private unique: boolean = true;
   private lowerBound: number = 0;
@@ -40,7 +42,19 @@ export class BasicEParameter extends BasicEObject implements EParameter {
   }
 
   getEType(): EClassifier | null {
+    // A generically typed parameter carries no eType attribute (#65).
+    if (!this.eType && this.eGenericType) {
+      return this.eGenericType.getERawType();
+    }
     return this.eType;
+  }
+
+  getEGenericType(): EGenericType | null {
+    return this.eGenericType;
+  }
+
+  setEGenericType(value: EGenericType | null): void {
+    this.eGenericType = value;
   }
 
   setEType(value: EClassifier | null): void {
@@ -117,6 +131,8 @@ export class BasicEParameter extends BasicEObject implements EParameter {
         return this.name;
       case 'eType':
         return this.eType;
+      case 'eGenericType':
+        return this.eGenericType;
       case 'eAnnotations':
         return this.eAnnotations;
       case 'ordered':
@@ -139,6 +155,9 @@ export class BasicEParameter extends BasicEObject implements EParameter {
         break;
       case 'eType':
         this.eType = newValue;
+        break;
+      case 'eGenericType':
+        this.eGenericType = newValue;
         break;
       case 'eAnnotations':
         if (Array.isArray(newValue)) {

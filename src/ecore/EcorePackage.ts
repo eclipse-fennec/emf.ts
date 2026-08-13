@@ -25,6 +25,8 @@ import { BasicEEnum } from '../runtime/BasicEEnum.js';
 import { BasicEEnumLiteral } from '../runtime/BasicEEnumLiteral.js';
 import { BasicEOperation } from '../runtime/BasicEOperation.js';
 import { BasicEParameter } from '../runtime/BasicEParameter.js';
+import { BasicEGenericType } from '../runtime/BasicEGenericType.js';
+import { BasicETypeParameter } from '../runtime/BasicETypeParameter.js';
 import { ecoreRegistry } from './EcoreRegistry.js';
 import { getXMLTypePackage } from './XMLTypePackage.js';
 
@@ -606,6 +608,84 @@ export class EcorePackageImpl extends BasicEPackage {
     detailsRef.setContainment(true);
     detailsRef.setUpperBound(-1);
     this._eAnnotationClass.getEStructuralFeatures().push(detailsRef);
+
+    // ===== Generics (#65) =====
+    // Without these features the loader rejects <eGenericType> and
+    // <eTypeParameters> as unknown, and a feature typed generically silently
+    // ends up with no eType at all.
+
+    // ETypedElement.eGenericType
+    const eGenericTypeRef = new BasicEReference();
+    eGenericTypeRef.setName('eGenericType');
+    eGenericTypeRef.setEType(this._eGenericTypeClass);
+    eGenericTypeRef.setContainment(true);
+    this._eTypedElementClass.getEStructuralFeatures().push(eGenericTypeRef);
+
+    // EClassifier.eTypeParameters
+    const eTypeParametersRef = new BasicEReference();
+    eTypeParametersRef.setName('eTypeParameters');
+    eTypeParametersRef.setEType(this._eTypeParameterClass);
+    eTypeParametersRef.setContainment(true);
+    eTypeParametersRef.setUpperBound(-1);
+    this._eClassifierClass.getEStructuralFeatures().push(eTypeParametersRef);
+
+    // EClass.eGenericSuperTypes
+    const eGenericSuperTypesRef = new BasicEReference();
+    eGenericSuperTypesRef.setName('eGenericSuperTypes');
+    eGenericSuperTypesRef.setEType(this._eGenericTypeClass);
+    eGenericSuperTypesRef.setContainment(true);
+    eGenericSuperTypesRef.setUpperBound(-1);
+    this._eClassClass.getEStructuralFeatures().push(eGenericSuperTypesRef);
+
+    // EOperation.eTypeParameters
+    const eOperationTypeParametersRef = new BasicEReference();
+    eOperationTypeParametersRef.setName('eTypeParameters');
+    eOperationTypeParametersRef.setEType(this._eTypeParameterClass);
+    eOperationTypeParametersRef.setContainment(true);
+    eOperationTypeParametersRef.setUpperBound(-1);
+    this._eOperationClass.getEStructuralFeatures().push(eOperationTypeParametersRef);
+
+    // ETypeParameter.eBounds
+    const eBoundsRef = new BasicEReference();
+    eBoundsRef.setName('eBounds');
+    eBoundsRef.setEType(this._eGenericTypeClass);
+    eBoundsRef.setContainment(true);
+    eBoundsRef.setUpperBound(-1);
+    this._eTypeParameterClass.getEStructuralFeatures().push(eBoundsRef);
+
+    // EGenericType.eClassifier - the raw type this generic type refers to
+    const eClassifierRef = new BasicEReference();
+    eClassifierRef.setName('eClassifier');
+    eClassifierRef.setEType(this._eClassifierClass);
+    this._eGenericTypeClass.getEStructuralFeatures().push(eClassifierRef);
+
+    // EGenericType.eTypeParameter
+    const eTypeParameterRef = new BasicEReference();
+    eTypeParameterRef.setName('eTypeParameter');
+    eTypeParameterRef.setEType(this._eTypeParameterClass);
+    this._eGenericTypeClass.getEStructuralFeatures().push(eTypeParameterRef);
+
+    // EGenericType.eTypeArguments
+    const eTypeArgumentsRef = new BasicEReference();
+    eTypeArgumentsRef.setName('eTypeArguments');
+    eTypeArgumentsRef.setEType(this._eGenericTypeClass);
+    eTypeArgumentsRef.setContainment(true);
+    eTypeArgumentsRef.setUpperBound(-1);
+    this._eGenericTypeClass.getEStructuralFeatures().push(eTypeArgumentsRef);
+
+    // EGenericType.eUpperBound
+    const eUpperBoundRef = new BasicEReference();
+    eUpperBoundRef.setName('eUpperBound');
+    eUpperBoundRef.setEType(this._eGenericTypeClass);
+    eUpperBoundRef.setContainment(true);
+    this._eGenericTypeClass.getEStructuralFeatures().push(eUpperBoundRef);
+
+    // EGenericType.eLowerBound
+    const eLowerBoundRef = new BasicEReference();
+    eLowerBoundRef.setName('eLowerBound');
+    eLowerBoundRef.setEType(this._eGenericTypeClass);
+    eLowerBoundRef.setContainment(true);
+    this._eGenericTypeClass.getEStructuralFeatures().push(eLowerBoundRef);
   }
 
   // Getters for EClasses
@@ -625,6 +705,8 @@ export class EcorePackageImpl extends BasicEPackage {
   getEOperationClass(): EClass { return this._eOperationClass; }
   getEParameterClass(): EClass { return this._eParameterClass; }
   getEAnnotationClass(): EClass { return this._eAnnotationClass; }
+  getEGenericTypeClass(): EClass { return this._eGenericTypeClass; }
+  getETypeParameterClass(): EClass { return this._eTypeParameterClass; }
   getEStringToStringMapEntryClass(): EClass { return this._eStringToStringMapEntryClass; }
 
   // Getters for EDataTypes
@@ -682,6 +764,10 @@ export class EcoreFactory extends BasicEFactory {
         return new BasicEOperation();
       case 'EParameter':
         return new BasicEParameter();
+      case 'EGenericType':
+        return new BasicEGenericType();
+      case 'ETypeParameter':
+        return new BasicETypeParameter();
       default:
         return super.create(eClass);
     }

@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { EResourceSetImpl } from '../src/ecore/index.js';
 import { URI } from '../src/URI.js';
-import { BasicEOperation, BasicEParameter } from '../src/runtime/index.js';
+import { BasicEOperation, BasicEParameter, BasicEGenericType } from '../src/runtime/index.js';
 import type { EPackage } from '../src/EPackage.js';
 import type { EClass } from '../src/EClass.js';
 import type { Resource } from '../src/Resource.js';
@@ -143,5 +143,29 @@ describe('eGenericType provides the feature type (#65)', () => {
     expect(box.getName()).toBe('Box');
     expect(box.getETypeParameters()).toHaveLength(1);
     expect(box.getETypeParameters()[0].getName()).toBe('T');
+  });
+
+  it('should keep the generic type structure including its type arguments', () => {
+    // The issue would have accepted dropping the type arguments; they survive.
+    const holder = firstClass(load(GENERICS_MODEL, 'generics.ecore'));
+    const label = holder.getEStructuralFeatures().get(0) as any;
+    const genericType = label.getEGenericType();
+
+    expect(genericType).toBeInstanceOf(BasicEGenericType);
+    expect(genericType.getEClassifier()?.getName()).toBe('Box');
+    expect(genericType.getETypeArguments()).toHaveLength(1);
+    expect(genericType.getETypeArguments()[0].getEClassifier()?.getName()).toBe('EString');
+  });
+
+  it('should serialize eGenericType back out and survive a round trip', () => {
+    const saved = (load(GENERICS_MODEL, 'generics.ecore') as any).saveToString();
+
+    expect(saved).toContain('<eGenericType eClassifier="#//Box">');
+    expect(saved).toContain('<eTypeArguments');
+    expect(saved).toContain('<eTypeParameters name="T"/>');
+
+    // Reloading the serialized form yields the same type again.
+    const reloaded = firstClass(load(saved, 'generics-2.ecore'));
+    expect(reloaded.getEStructuralFeatures().get(0).getEType()?.getName()).toBe('Box');
   });
 });

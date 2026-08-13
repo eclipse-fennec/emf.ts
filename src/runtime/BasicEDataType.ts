@@ -11,6 +11,8 @@ import { EPackage } from '../EPackage.js';
 import { EClass } from '../EClass.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
+import { ETypeParameter } from '../ETypeParameter.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 
 /**
@@ -23,6 +25,7 @@ export class BasicEDataType extends BasicEObject implements EDataType {
   private ePackage: EPackage | null = null;
   private serializable: boolean = true;
   private eAnnotations: EAnnotation[] = [];
+  private eTypeParameters: ETypeParameter[] = [];
 
   getName(): string | null {
     return this.name;
@@ -91,8 +94,8 @@ export class BasicEDataType extends BasicEObject implements EDataType {
     this.ePackage = pkg;
   }
 
-  getETypeParameters(): any[] {
-    return [];
+  getETypeParameters(): ETypeParameter[] {
+    return this.eTypeParameters;
   }
 
   isInstance(object: any): boolean {
@@ -162,6 +165,8 @@ export class BasicEDataType extends BasicEObject implements EDataType {
         return this.serializable;
       case 'eAnnotations':
         return this.eAnnotations;
+      case 'eTypeParameters':
+        return this.eTypeParameters;
       default:
         return super.eGet(feature);
     }
@@ -188,6 +193,12 @@ export class BasicEDataType extends BasicEObject implements EDataType {
       case 'eAnnotations':
         if (Array.isArray(newValue)) {
           this.eAnnotations = newValue;
+        }
+        super.eSet(feature, newValue);
+        break;
+      case 'eTypeParameters':
+        if (Array.isArray(newValue)) {
+          this.eTypeParameters = newValue;
         }
         super.eSet(feature, newValue);
         break;

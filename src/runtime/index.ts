@@ -21,5 +21,7 @@ export * from './BasicEEnumLiteral.js';
 export * from './BasicEAnnotation.js';
 export * from './BasicEOperation.js';
 export * from './BasicEParameter.js';
+export * from './BasicEGenericType.js';
+export * from './BasicETypeParameter.js';
 export * from './DataTypeRegistry.js';
 export * from './EProxyImpl.js';
