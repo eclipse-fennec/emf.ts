@@ -11,6 +11,8 @@ import { EClass } from '../EClass.js';
 import { EClassifier } from '../EClassifier.js';
 import { EParameter } from '../EParameter.js';
 import { EStructuralFeature } from '../EStructuralFeature.js';
+import { EGenericType } from '../EGenericType.js';
+import { ETypeParameter } from '../ETypeParameter.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
@@ -25,6 +27,8 @@ export class BasicEOperation extends BasicEObject implements EOperation {
   private eParameters: EParameter[] = [];
   private eExceptions: EClassifier[] = [];
   private eAnnotations: EAnnotation[] = [];
+  private eGenericType: EGenericType | null = null;
+  private eTypeParameters: ETypeParameter[] = [];
   private ordered: boolean = true;
   private unique: boolean = true;
   private lowerBound: number = 0;
@@ -47,7 +51,23 @@ export class BasicEOperation extends BasicEObject implements EOperation {
   }
 
   getEType(): EClassifier | null {
+    // A generically typed operation carries no eType attribute (#65).
+    if (!this.eType && this.eGenericType) {
+      return this.eGenericType.getERawType();
+    }
     return this.eType;
+  }
+
+  getEGenericType(): EGenericType | null {
+    return this.eGenericType;
+  }
+
+  setEGenericType(value: EGenericType | null): void {
+    this.eGenericType = value;
+  }
+
+  getETypeParameters(): ETypeParameter[] {
+    return this.eTypeParameters;
   }
 
   setEType(value: EClassifier | null): void {
@@ -167,6 +187,10 @@ export class BasicEOperation extends BasicEObject implements EOperation {
         return this.name;
       case 'eType':
         return this.eType;
+      case 'eGenericType':
+        return this.eGenericType;
+      case 'eTypeParameters':
+        return this.eTypeParameters;
       case 'eParameters':
         return this.eParameters;
       case 'eExceptions':
@@ -193,6 +217,14 @@ export class BasicEOperation extends BasicEObject implements EOperation {
         break;
       case 'eType':
         this.eType = newValue;
+        break;
+      case 'eGenericType':
+        this.eGenericType = newValue;
+        break;
+      case 'eTypeParameters':
+        if (Array.isArray(newValue)) {
+          this.eTypeParameters = newValue;
+        }
         break;
       case 'eParameters':
         if (Array.isArray(newValue)) {

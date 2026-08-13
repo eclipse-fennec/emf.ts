@@ -16,6 +16,8 @@ import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { EList, EObjectContainmentWithInverseEListLazy, createIndexedProxy } from '../EList.js';
+import { ETypeParameter } from '../ETypeParameter.js';
+import { EGenericType } from '../EGenericType.js';
 import { EObject } from '../EObject.js';
 
 /**
@@ -32,6 +34,8 @@ export class BasicEClass extends BasicEObject implements EClass {
   private instanceClassName: string | null = null;
   private instanceClass: Function | null = null;
   private featureID: number = 0;
+  private eTypeParameters: ETypeParameter[] = [];
+  private eGenericSuperTypes: EGenericType[] = [];
   private eAnnotations: EAnnotation[] = [];
   private xmlNameToFeature: Map<string, EStructuralFeature> = new Map();
 
@@ -272,8 +276,8 @@ export class BasicEClass extends BasicEObject implements EClass {
     this.ePackage = pkg;
   }
 
-  getETypeParameters(): any[] {
-    return [];
+  getETypeParameters(): ETypeParameter[] {
+    return this.eTypeParameters;
   }
 
   isInstance(object: any): boolean {
@@ -355,6 +359,10 @@ export class BasicEClass extends BasicEObject implements EClass {
         return this.getEStructuralFeatures();
       case 'eOperations':
         return this.eOperations;
+      case 'eTypeParameters':
+        return this.eTypeParameters;
+      case 'eGenericSuperTypes':
+        return this.eGenericSuperTypes;
       case 'eAnnotations':
         return this.eAnnotations;
       case 'instanceClassName':
@@ -402,6 +410,18 @@ export class BasicEClass extends BasicEObject implements EClass {
       case 'eOperations':
         if (Array.isArray(newValue)) {
           this.eOperations = newValue;
+        }
+        super.eSet(feature, newValue);
+        break;
+      case 'eTypeParameters':
+        if (Array.isArray(newValue)) {
+          this.eTypeParameters = newValue;
+        }
+        super.eSet(feature, newValue);
+        break;
+      case 'eGenericSuperTypes':
+        if (Array.isArray(newValue)) {
+          this.eGenericSuperTypes = newValue;
         }
         super.eSet(feature, newValue);
         break;

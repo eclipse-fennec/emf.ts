@@ -8,6 +8,7 @@
 
 import { EStructuralFeature } from '../EStructuralFeature.js';
 import { EClassifier } from '../EClassifier.js';
+import { EGenericType } from '../EGenericType.js';
 import { EClass } from '../EClass.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
@@ -28,6 +29,7 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
   private unsettable: boolean = false;
   private derived: boolean = false;
   private eType: EClassifier | null = null;
+  private eGenericType: EGenericType | null = null;
   private eContainingClass: EClass | null = null;
   private lowerBound: number = 0;
   private upperBound: number = 1;
@@ -166,11 +168,24 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
         }
       }
     }
+    // A feature typed via <eGenericType> carries no eType attribute; the type
+    // is the raw type of the generic type (#65).
+    if (!this.eType && this.eGenericType) {
+      return this.eGenericType.getERawType();
+    }
     return this.eType;
   }
 
   setEType(value: EClassifier | null): void {
     this.eType = value;
+  }
+
+  getEGenericType(): EGenericType | null {
+    return this.eGenericType;
+  }
+
+  setEGenericType(value: EGenericType | null): void {
+    this.eGenericType = value;
   }
 
   getEContainingClass(): EClass | null {
@@ -248,6 +263,8 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
         return this.derived;
       case 'eType':
         return this.eType;
+      case 'eGenericType':
+        return this.eGenericType;
       case 'lowerBound':
         return this.lowerBound;
       case 'upperBound':
@@ -295,6 +312,10 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
         break;
       case 'eType':
         this.eType = newValue;
+        super.eSet(feature, newValue);
+        break;
+      case 'eGenericType':
+        this.eGenericType = newValue;
         super.eSet(feature, newValue);
         break;
       case 'lowerBound':
