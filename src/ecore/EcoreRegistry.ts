@@ -112,6 +112,16 @@ class EcoreClassRegistry {
   }
 
   /**
+   * Get the EClass for EParameter
+   */
+  getEParameterClass(): EClass {
+    if (!this._getEcorePackage) {
+      throw new Error('EcorePackage not registered. Import EcorePackage first.');
+    }
+    return this._getEcorePackage().getEParameterClass();
+  }
+
+  /**
    * Get the EClass for EAnnotation
    */
   getEAnnotationClass(): EClass {
