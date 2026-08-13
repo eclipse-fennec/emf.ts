@@ -8,6 +8,19 @@ This package provides a TypeScript implementation of the Eclipse Modeling Framew
 
 The Ecore metamodel aligns with the OMG [Meta Object Facility (MOF)](https://www.omg.org/spec/MOF/) — specifically EMOF (Essential MOF).
 
+## Installation
+
+```bash
+npm install @emfts/core@next
+```
+
+> **Use the `next` tag for now.** The `latest` tag still points at `0.1.0`, which
+> predates a substantial part of the runtime. In particular the `@masagroup/ecore`
+> compatibility layer under `src/ecore/` — `EResourceSetImpl` with the XMI factory
+> pre-registered for `.ecore`, `getEcorePackage()`, the package registries — exists
+> only in `next`. If you are migrating from `@masagroup/ecore`, that layer is what
+> you want, and `npm install @emfts/core` alone will not give it to you.
+
 ## Core Interfaces
 
 ### Metamodel Hierarchy
@@ -68,6 +81,14 @@ console.log(name); // 'John Doe'
 - ✅ Package registry pattern
 - ✅ Factory pattern for object creation
 
+## Documentation
+
+- [Collections: EList, EMap and arrays](./docs/collections.md) — which accessors
+  return an `EList` and which return a plain array, and why `Array.isArray()` is
+  `false` on an `EList`
+- [Examples](./docs/examples/index.md) — dynamic models, factories, notifications,
+  XMI/JSON persistence
+
 ## Architecture
 
 The interfaces follow the same design as Eclipse EMF:
@@ -90,9 +111,10 @@ npm run build
 |---|---|
 | Registry | [npmjs.com](https://www.npmjs.com/package/@emfts/core) |
 | Package | [`@emfts/core`](https://www.npmjs.com/package/@emfts/core) (public) |
-| Install | `npm install @emfts/core` |
+| Install | `npm install @emfts/core@next` (see [Installation](#installation)) |
+| Dist-tags | `next` — current development line · `latest` — `0.1.0`, predates the `@masagroup/ecore` compatibility layer |
 | Build output | `dist/` (ESM, `tsc`) — only `dist` is published (see `files` in `package.json`) |
-| Source | <https://github.com/eclipse-fennec/emf.ts> (default branch `main`) |
+| Source | <https://github.com/eclipse-fennec/emf.ts> (default branch `snapshot`) |
 | Project | [Eclipse Fennec](https://projects.eclipse.org/projects/modeling.fennec) |
 
 Releases are published to the npm registry under the `@emfts` scope.
