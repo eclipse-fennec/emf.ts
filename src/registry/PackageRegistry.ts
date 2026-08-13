@@ -6,7 +6,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  */
 
-import { EPackage, EPackageRegistry as IEPackageRegistry } from '../EPackage.js';
+import { EPackage, EPackageRegistry as IEPackageRegistry, requireNsURI } from '../EPackage.js';
 import { EFactory } from '../EFactory.js';
 import { Registry, ExtensionListener, Extension } from './PluginRegistry.js';
 import { ExtensionPoints, GeneratedPackageExtension, DynamicPackageExtension } from './ExtensionPoints.js';
@@ -124,6 +124,10 @@ export class ExtensionAwarePackageRegistry implements IEPackageRegistry {
     this.packages.set(nsURI, value);
     // Also register all subpackages recursively
     this.registerSubpackages(value);
+  }
+
+  registerPackage(ePackage: EPackage): void {
+    this.set(requireNsURI(ePackage), ePackage);
   }
 
   /**
