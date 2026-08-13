@@ -49,7 +49,7 @@ export * from './EcoreValidator.js';
 import { BasicResourceSet } from '../runtime/BasicResourceSet.js';
 import { XMIResource, XMIResourceFactory } from '../xmi/XMLResource.js';
 import { URI } from '../URI.js';
-import { EPackage, EPackageRegistry } from '../EPackage.js';
+import { EPackage, EPackageRegistry, requireNsURI, registerSubpackages } from '../EPackage.js';
 import { Resource } from '../Resource.js';
 import { getEcorePackage, ECORE_NS_URI } from './EcorePackage.js';
 
@@ -81,7 +81,10 @@ export class EResourceSetImpl extends BasicResourceSet {
 }
 
 /**
- * Extended package registry with registerPackage method
+ * Creates a standalone package registry.
+ *
+ * registerPackage() is part of EPackageRegistry itself now, so this returns a
+ * plain registry; the intersection type is kept for source compatibility.
  */
 export function createPackageRegistry(): EPackageRegistry & { registerPackage(pkg: EPackage): void } {
   const map = new Map<string, any>();
@@ -105,6 +108,11 @@ export function createPackageRegistry(): EPackageRegistry & { registerPackage(pk
 
     set(nsURI: string, value: any) {
       map.set(nsURI, value);
+      // Register subpackages too, so this registry behaves like every other one
+      // (see the note on registerSubpackages).
+      if (value && !('getEPackage' in value) && typeof value.getESubpackages === 'function') {
+        registerSubpackages(map, value as EPackage);
+      }
     },
 
     delete(nsURI: string) {
@@ -127,10 +135,7 @@ export function createPackageRegistry(): EPackageRegistry & { registerPackage(pk
      * Register a package by its nsURI
      */
     registerPackage(pkg: EPackage) {
-      const nsURI = pkg.getNsURI();
-      if (nsURI) {
-        map.set(nsURI, pkg);
-      }
+      this.set(requireNsURI(pkg), pkg);
     }
   };
 
@@ -138,19 +143,11 @@ export function createPackageRegistry(): EPackageRegistry & { registerPackage(pk
 }
 
 /**
- * Global package registry with registerPackage
+ * Returns the global package registry.
+ *
+ * registerPackage() is part of EPackageRegistry itself now, so the global
+ * instance is returned directly instead of being wrapped.
  */
 export function getPackageRegistry(): EPackageRegistry & { registerPackage(pkg: EPackage): void } {
-  // We extend the global registry
-  const baseRegistry = EPackageRegistry.INSTANCE;
-
-  return {
-    ...baseRegistry,
-    registerPackage(pkg: EPackage) {
-      const nsURI = pkg.getNsURI();
-      if (nsURI) {
-        baseRegistry.set(nsURI, pkg);
-      }
-    }
-  };
+  return EPackageRegistry.INSTANCE;
 }

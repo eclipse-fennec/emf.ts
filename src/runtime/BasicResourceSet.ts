@@ -10,7 +10,7 @@ import { ResourceSet, URIConverter } from '../ResourceSet.js';
 import { Resource } from '../Resource.js';
 import { URI } from '../URI.js';
 import { EObject } from '../EObject.js';
-import { EPackage, EPackageRegistry } from '../EPackage.js';
+import { EPackage, EPackageRegistry, requireNsURI } from '../EPackage.js';
 import { BasicResource } from './BasicResource.js';
 import { EList, BasicEList, createIndexedProxy } from '../EList.js';
 import { EClass } from '../EClass.js';
@@ -355,6 +355,10 @@ export class BasicResourceSet implements ResourceSet {
         if (value && !('getEPackage' in value) && typeof value.getESubpackages === 'function') {
           registerSubpackages(value as EPackage);
         }
+      },
+
+      registerPackage(ePackage: EPackage) {
+        this.set(requireNsURI(ePackage), ePackage);
       },
 
       delete(nsURI: string) {

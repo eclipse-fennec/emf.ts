@@ -102,6 +102,15 @@ export interface EPackageRegistry {
   getEFactory(nsURI: string): EFactory | null;
 
   /**
+   * Registers a package under its own nsURI.
+   *
+   * Equivalent to `set(pkg.getNsURI(), pkg)` and provided because the nsURI is
+   * already part of the package. Throws if the package has no nsURI, since it
+   * could not be looked up afterwards.
+   */
+  registerPackage(ePackage: EPackage): void;
+
+  /**
    * Standard Map operations
    */
   get(nsURI: string): EPackage | EPackageDescriptor | null;
@@ -130,7 +139,7 @@ export namespace EPackageRegistry {
  * automatically registers subpackages to better support dynamically
  * loaded packages (e.g., loading .ecore files at runtime).
  */
-function registerSubpackages(
+export function registerSubpackages(
   map: Map<string, EPackage | EPackageDescriptor>,
   pkg: EPackage
 ): void {
@@ -142,6 +151,20 @@ function registerSubpackages(
     // Recursively register nested subpackages
     registerSubpackages(map, subPkg);
   }
+}
+
+/**
+ * Returns the package's nsURI, or throws if it has none. Registering a package
+ * without an nsURI would silently produce an entry nobody can look up.
+ */
+export function requireNsURI(ePackage: EPackage): string {
+  const nsURI = ePackage.getNsURI();
+  if (!nsURI) {
+    throw new Error(
+      `Cannot register package '${ePackage.getName() ?? '<unnamed>'}': it has no nsURI.`
+    );
+  }
+  return nsURI;
 }
 
 function createGlobalRegistry(): EPackageRegistry {
@@ -176,6 +199,10 @@ function createGlobalRegistry(): EPackageRegistry {
       if (!('getEPackage' in value)) {
         registerSubpackages(map, value as EPackage);
       }
+    },
+
+    registerPackage(ePackage: EPackage) {
+      this.set(requireNsURI(ePackage), ePackage);
     },
 
     delete(nsURI: string) {
