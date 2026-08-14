@@ -873,12 +873,21 @@ export class XMLHandler {
           }
         }
       }
-      if (eFactory && dataType) {
-        const convertedValue = eFactory.createFromString(dataType, value);
-        this.helper.setValue(eObject, feature, convertedValue, position);
-      } else {
-        // Fallback: just use the string value directly for basic types
-        this.helper.setValue(eObject, feature, value, position);
+      // A value the datatype cannot convert must not abort the whole document.
+      // Java EMF collects such failures as IllegalValueException in
+      // resource.getErrors() and keeps loading (XMLHandler.setFeatureValue);
+      // the feature then stays unset.
+      try {
+        if (eFactory && dataType) {
+          const convertedValue = eFactory.createFromString(dataType, value);
+          this.helper.setValue(eObject, feature, convertedValue, position);
+        } else {
+          // Fallback: just use the string value directly for basic types
+          this.helper.setValue(eObject, feature, value, position);
+        }
+      } catch (e) {
+        const reason = e instanceof Error ? e.message : String(e);
+        this.error(`Invalid value for feature '${feature.getName()}': ${reason}`);
       }
     } else {
       // It's a reference - handle as ID

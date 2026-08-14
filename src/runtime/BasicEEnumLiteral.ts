@@ -49,8 +49,13 @@ export class BasicEEnumLiteral extends BasicEObject implements EEnumLiteral {
     this.instance = value;
   }
 
+  /**
+   * Returns the literal string, falling back to the name when no explicit
+   * literal is set. In .ecore files the `literal` attribute is usually
+   * omitted, so without this fallback lookups by literal would never match.
+   */
   getLiteral(): string | null {
-    return this.literal;
+    return this.literal ?? this._name;
   }
 
   setLiteral(value: string | null): void {
