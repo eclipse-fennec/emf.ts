@@ -1091,6 +1091,134 @@ export function isEList<T>(obj: any): obj is EList<T> {
 }
 
 /**
+ * Returns true for anything that holds a sequence of values - a plain array or
+ * an EList. Use this instead of Array.isArray() wherever a multi-valued feature
+ * value is accepted, since both shapes occur.
+ */
+export function isListValue<T>(value: any): value is T[] | EList<T> {
+  return Array.isArray(value) || isEList<T>(value);
+}
+
+/**
+ * Normalizes a multi-valued feature value to a plain array. Arrays are returned
+ * as-is, ELists are copied out.
+ */
+export function toArray<T>(value: T[] | EList<T>): T[] {
+  return Array.isArray(value) ? value : value.toArray();
+}
+
+/**
+ * A read-only view on a computed list.
+ *
+ * Derived accessors such as getEAllStructuralFeatures() do not own their
+ * contents - they assemble them from the class and its supertypes. Writing into
+ * the result cannot have an effect, so every mutating operation throws instead
+ * of failing silently. This mirrors EcoreEList.UnmodifiableEList in Java EMF,
+ * where the same methods throw UnsupportedOperationException.
+ *
+ * The backing array is used directly rather than copied, so wrapping is cheap.
+ */
+export class UnmodifiableEList<T> extends BasicEList<T> {
+  private readonly accessorName: string;
+
+  /**
+   * @param data the computed contents; used as backing store, not copied
+   * @param accessorName name of the accessor, used in the error message
+   */
+  constructor(data: T[], accessorName: string) {
+    super(null, null);
+    this.data = data;
+    this.accessorName = accessorName;
+  }
+
+  /**
+   * Raises the error every mutating method funnels through.
+   */
+  private refuse(operation: string): never {
+    throw new Error(
+      `Cannot call ${operation}() on the result of ${this.accessorName}: ` +
+      `it is a derived list and cannot be modified. ` +
+      `Modify the owning list instead (e.g. getEStructuralFeatures()).`
+    );
+  }
+
+  override set(_index: number, _element: T): T {
+    this.refuse('set');
+  }
+
+  override add(_element: T): boolean {
+    this.refuse('add');
+  }
+
+  override addAt(_index: number, _element: T): void {
+    this.refuse('addAt');
+  }
+
+  override addAll(_elements: T[]): boolean {
+    this.refuse('addAll');
+  }
+
+  override addAllAt(_index: number, _elements: T[]): boolean {
+    this.refuse('addAllAt');
+  }
+
+  override remove(_element: T): boolean {
+    this.refuse('remove');
+  }
+
+  override removeAt(_index: number): T {
+    this.refuse('removeAt');
+  }
+
+  override clear(): void {
+    this.refuse('clear');
+  }
+
+  override move(_toIndex: number, _fromIndex: number): T {
+    this.refuse('move');
+  }
+
+  override push(..._items: T[]): number {
+    this.refuse('push');
+  }
+
+  override pop(): T | undefined {
+    this.refuse('pop');
+  }
+
+  override shift(): T | undefined {
+    this.refuse('shift');
+  }
+
+  override unshift(..._items: T[]): number {
+    this.refuse('unshift');
+  }
+
+  override splice(_start: number, _deleteCount?: number, ..._items: T[]): T[] {
+    this.refuse('splice');
+  }
+
+  override sort(_compareFn?: (a: T, b: T) => number): this {
+    // Sorting in place would modify the derived result; sort a copy instead.
+    this.refuse('sort');
+  }
+
+  override reverse(): this {
+    this.refuse('reverse');
+  }
+}
+
+/**
+ * Creates a read-only EList over a computed array, with index access.
+ *
+ * @param data the computed contents; used as backing store, not copied
+ * @param accessorName name of the accessor, used in error messages
+ */
+export function createUnmodifiableEList<T>(data: T[], accessorName: string): EList<T> {
+  return createIndexedProxy(new UnmodifiableEList<T>(data, accessorName));
+}
+
+/**
  * Wraps an EList with a Proxy to enable array-like index access (list[0], list[1], etc.)
  *
  * Every EList now installs this Proxy in its own constructor, so this function

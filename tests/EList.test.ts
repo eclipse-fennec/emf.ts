@@ -38,6 +38,7 @@ import {
   isEList,
   BasicEList,
   createIndexedProxy,
+  createUnmodifiableEList,
 } from '../src';
 
 /**
@@ -924,6 +925,82 @@ describe('EList', () => {
       const list = new BasicEList<string>();
 
       expect(createIndexedProxy(list)).toBe(list);
+    });
+  });
+
+  /**
+   * Read-only lists for derived accessors.
+   *
+   * Mirrors EcoreEList.UnmodifiableEList in Java EMF, which throws
+   * UnsupportedOperationException from every mutating method. Writing into a
+   * derived result cannot have an effect, so it must not appear to succeed.
+   */
+  describe('UnmodifiableEList', () => {
+    const make = () => createUnmodifiableEList(['a', 'b'], 'getEAllStructuralFeatures');
+
+    it('should support all read operations', () => {
+      const list = make();
+
+      expect(list.size()).toBe(2);
+      expect(list.length).toBe(2);
+      expect(list.get(0)).toBe('a');
+      expect(list[1]).toBe('b');
+      expect(list.indexOf('b')).toBe(1);
+      expect(list.contains('a')).toBe(true);
+      expect(list.map(v => v.toUpperCase())).toEqual(['A', 'B']);
+      expect([...list]).toEqual(['a', 'b']);
+      expect(Array.from(list)).toEqual(['a', 'b']);
+      expect(list.toArray()).toEqual(['a', 'b']);
+      expect(JSON.stringify(list)).toBe('["a","b"]');
+    });
+
+    it.each([
+      ['add', (l: any) => l.add('c')],
+      ['addAt', (l: any) => l.addAt(0, 'c')],
+      ['addAll', (l: any) => l.addAll(['c'])],
+      ['addAllAt', (l: any) => l.addAllAt(0, ['c'])],
+      ['set', (l: any) => l.set(0, 'c')],
+      ['remove', (l: any) => l.remove('a')],
+      ['removeAt', (l: any) => l.removeAt(0)],
+      ['clear', (l: any) => l.clear()],
+      ['move', (l: any) => l.move(1, 0)],
+      ['push', (l: any) => l.push('c')],
+      ['pop', (l: any) => l.pop()],
+      ['shift', (l: any) => l.shift()],
+      ['unshift', (l: any) => l.unshift('c')],
+      ['splice', (l: any) => l.splice(0, 1)],
+      ['sort', (l: any) => l.sort()],
+      ['reverse', (l: any) => l.reverse()],
+      ['index assignment', (l: any) => { l[0] = 'c'; }],
+      ['length assignment', (l: any) => { l.length = 0; }],
+    ])('should refuse %s', (_name, mutate) => {
+      const list = make();
+
+      expect(() => mutate(list)).toThrow(/derived list and cannot be modified/);
+      expect(list.toArray()).toEqual(['a', 'b']);
+    });
+
+    it('should name the accessor in the error message', () => {
+      const list = make();
+
+      expect(() => (list as any).add('c')).toThrow(/getEAllStructuralFeatures/);
+    });
+
+    it('should use the given array as backing store without copying', () => {
+      // Java EMF wraps the computed result rather than copying it, which is what
+      // makes the wrapper cheap.
+      const data = ['a'];
+      const list = createUnmodifiableEList(data, 'getEAllSuperTypes');
+
+      data.push('b');
+
+      expect(list.size()).toBe(2);
+    });
+
+    it('should return a modifiable copy from toArray', () => {
+      const copy = make().toArray();
+
+      expect(() => copy.push('c')).not.toThrow();
     });
   });
 });
