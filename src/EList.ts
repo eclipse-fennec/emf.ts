@@ -1035,6 +1035,20 @@ export class EObjectContainmentWithInverseEListLazy<T extends EObject = EObject>
     this.inverseSetter(newElement, this.owner);
     super.didSet(index, newElement, oldElement);
   }
+
+  /**
+   * This list holds EClass.eStructuralFeatures, which every derived feature list
+   * is assembled from, so each change has to invalidate those caches.
+   */
+  protected override dispatchNotification(
+    eventType: NotificationEventType,
+    oldValue: any,
+    newValue: any,
+    position: number
+  ): void {
+    bumpMetamodelRevision();
+    super.dispatchNotification(eventType, oldValue, newValue, position);
+  }
 }
 
 /**
@@ -1216,6 +1230,114 @@ export class UnmodifiableEList<T> extends BasicEList<T> {
  */
 export function createUnmodifiableEList<T>(data: T[], accessorName: string): EList<T> {
   return createIndexedProxy(new UnmodifiableEList<T>(data, accessorName));
+}
+
+/**
+ * Counts structural changes to any metamodel element in this runtime.
+ *
+ * Derived lists (getEAllStructuralFeatures() and friends) are assembled from a
+ * class and its supertypes, so a change anywhere up the hierarchy invalidates
+ * them. Java EMF tracks this per class with ESuperAdapter, which maintains a
+ * reverse registry of subclasses and pushes invalidation down. A single global
+ * counter achieves the same correctness with an O(1) check and no bookkeeping:
+ * a cached list is valid exactly while the counter has not moved.
+ *
+ * The trade-off is that a change to one class invalidates every cached list, not
+ * only the affected ones. That matches the typical lifecycle - a model is loaded
+ * and then read many times - and is never worse than recomputing on every call,
+ * which is what happened before.
+ */
+let metamodelRevision = 0;
+
+/**
+ * Records a structural change. Called by the notifying lists below.
+ */
+export function bumpMetamodelRevision(): void {
+  metamodelRevision++;
+}
+
+/**
+ * The current revision, to be stored alongside a cached derived list.
+ */
+export function currentMetamodelRevision(): number {
+  return metamodelRevision;
+}
+
+/**
+ * Holds a derived list together with the revision it was computed at.
+ */
+export interface DerivedListCache<T> {
+  revision: number;
+  list: EList<T>;
+}
+
+/**
+ * Returns the cached derived list, recomputing it when the metamodel changed.
+ *
+ * Keeping the wrapper (not just the array) in the cache also stabilizes object
+ * identity across calls, matching Java EMF where repeated calls to a derived
+ * accessor return the same list while the model is unchanged.
+ *
+ * @param cache holder to read and update; pass a per-object field
+ * @param accessorName name of the accessor, used in error messages
+ * @param compute builds the contents; only called when the cache is stale
+ */
+export function cachedDerivedList<T>(
+  cache: { value: DerivedListCache<T> | null },
+  accessorName: string,
+  compute: () => T[]
+): EList<T> {
+  const revision = currentMetamodelRevision();
+  if (cache.value !== null && cache.value.revision === revision) {
+    return cache.value.list;
+  }
+  const list = createUnmodifiableEList(compute(), accessorName);
+  cache.value = { revision, list };
+  return list;
+}
+
+/**
+ * A BasicEList that records a structural change on every mutation, so cached
+ * derived lists notice. Every mutation funnels through dispatchNotification,
+ * which is why overriding it alone is sufficient.
+ *
+ * The feature is resolved lazily: metamodel lists exist before the Ecore
+ * package that describes them has finished bootstrapping.
+ */
+export class MetamodelEList<T> extends BasicEList<T> {
+  private featureResolver: (() => EStructuralFeature | null) | null;
+
+  constructor(owner: EObject | null, featureResolver?: () => EStructuralFeature | null) {
+    super(owner, null);
+    this.featureResolver = featureResolver ?? null;
+  }
+
+  override getFeature(): EStructuralFeature | null {
+    if (this.feature === null && this.featureResolver !== null) {
+      this.feature = this.featureResolver();
+    }
+    return this.feature;
+  }
+
+  protected override dispatchNotification(
+    eventType: NotificationEventType,
+    oldValue: any,
+    newValue: any,
+    position: number
+  ): void {
+    bumpMetamodelRevision();
+    super.dispatchNotification(eventType, oldValue, newValue, position);
+  }
+}
+
+/**
+ * Creates a MetamodelEList with index access.
+ */
+export function createMetamodelEList<T>(
+  owner: EObject | null,
+  featureResolver?: () => EStructuralFeature | null
+): EList<T> {
+  return createIndexedProxy(new MetamodelEList<T>(owner, featureResolver));
 }
 
 /**
