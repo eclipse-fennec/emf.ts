@@ -10,6 +10,7 @@ import { Resource } from './Resource.js';
 import { URI } from './URI.js';
 import { EObject } from './EObject.js';
 import { EPackageRegistry } from './EPackage.js';
+import { EList } from './EList.js';
 
 /**
  * A collection of related persistent documents.
@@ -18,7 +19,7 @@ export interface ResourceSet {
   /**
    * Returns the list of resources.
    */
-  getResources(): Resource[];
+  getResources(): EList<Resource>;
 
   /**
    * Returns the resource with the given URI, loading it if necessary.

@@ -133,7 +133,7 @@ export interface EList<T> extends Iterable<T> {
   /**
    * Array-compatible filter method.
    */
-  filter(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): T[];
+  filter(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): T[];
 
   /**
    * Array-compatible map method.
@@ -148,22 +148,22 @@ export interface EList<T> extends Iterable<T> {
   /**
    * Array-compatible find method.
    */
-  find(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): T | undefined;
+  find(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): T | undefined;
 
   /**
    * Array-compatible findIndex method.
    */
-  findIndex(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): number;
+  findIndex(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): number;
 
   /**
    * Array-compatible some method.
    */
-  some(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): boolean;
+  some(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): boolean;
 
   /**
    * Array-compatible every method.
    */
-  every(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): boolean;
+  every(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): boolean;
 
   /**
    * Array-compatible includes method.
@@ -448,35 +448,35 @@ export class BasicEList<T> implements NotifyingEList<T> {
   /**
    * Array-compatible filter method.
    */
-  filter(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): T[] {
+  filter(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): T[] {
     return this.data.filter((value, index) => callback.call(thisArg, value, index, this.data));
   }
 
   /**
    * Array-compatible find method.
    */
-  find(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): T | undefined {
+  find(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): T | undefined {
     return this.data.find((value, index) => callback.call(thisArg, value, index, this.data));
   }
 
   /**
    * Array-compatible findIndex method.
    */
-  findIndex(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): number {
+  findIndex(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): number {
     return this.data.findIndex((value, index) => callback.call(thisArg, value, index, this.data));
   }
 
   /**
    * Array-compatible some method.
    */
-  some(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): boolean {
+  some(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): boolean {
     return this.data.some((value, index) => callback.call(thisArg, value, index, this.data));
   }
 
   /**
    * Array-compatible every method.
    */
-  every(callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any): boolean {
+  every(callback: (value: T, index: number, array: T[]) => unknown, thisArg?: any): boolean {
     return this.data.every((value, index) => callback.call(thisArg, value, index, this.data));
   }
 

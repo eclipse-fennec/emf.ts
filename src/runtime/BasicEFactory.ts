@@ -14,6 +14,8 @@ import { EDataType } from '../EDataType.js';
 import { DynamicEObject } from './BasicEObject.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { dataTypeRegistry } from './DataTypeRegistry.js';
+import { EList, createMetamodelEList } from '../EList.js';
+import { EAnnotation } from '../EAnnotation.js';
 
 /**
  * Basic EFactory implementation
@@ -86,8 +88,10 @@ export class BasicEFactory implements EFactory {
   }
 
   // EModelElement methods
-  getEAnnotations(): any[] {
-    return [];
+  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+
+  getEAnnotations(): EList<EAnnotation> {
+    return this.eAnnotations;
   }
 
   getEAnnotation(source: string): any {

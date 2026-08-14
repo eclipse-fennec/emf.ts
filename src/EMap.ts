@@ -237,7 +237,7 @@ export class BasicEMap<K, V> implements EMap<K, V> {
   [Symbol.iterator](): Iterator<EObject> { return this.delegateList[Symbol.iterator](); }
 
   push(...items: EObject[]): number { return this.delegateList.push(...items); }
-  filter(callback: (value: EObject, index: number, array: EObject[]) => boolean, thisArg?: any): EObject[] {
+  filter(callback: (value: EObject, index: number, array: EObject[]) => unknown, thisArg?: any): EObject[] {
     return this.delegateList.filter(callback, thisArg);
   }
   map<U>(callback: (value: EObject, index: number, array: EObject[]) => U, thisArg?: any): U[] {
@@ -246,16 +246,16 @@ export class BasicEMap<K, V> implements EMap<K, V> {
   forEach(callback: (value: EObject, index: number, array: EObject[]) => void, thisArg?: any): void {
     this.delegateList.forEach(callback, thisArg);
   }
-  find(callback: (value: EObject, index: number, array: EObject[]) => boolean, thisArg?: any): EObject | undefined {
+  find(callback: (value: EObject, index: number, array: EObject[]) => unknown, thisArg?: any): EObject | undefined {
     return this.delegateList.find(callback, thisArg);
   }
-  findIndex(callback: (value: EObject, index: number, array: EObject[]) => boolean, thisArg?: any): number {
+  findIndex(callback: (value: EObject, index: number, array: EObject[]) => unknown, thisArg?: any): number {
     return this.delegateList.findIndex(callback, thisArg);
   }
-  some(callback: (value: EObject, index: number, array: EObject[]) => boolean, thisArg?: any): boolean {
+  some(callback: (value: EObject, index: number, array: EObject[]) => unknown, thisArg?: any): boolean {
     return this.delegateList.some(callback, thisArg);
   }
-  every(callback: (value: EObject, index: number, array: EObject[]) => boolean, thisArg?: any): boolean {
+  every(callback: (value: EObject, index: number, array: EObject[]) => unknown, thisArg?: any): boolean {
     return this.delegateList.every(callback, thisArg);
   }
   includes(element: EObject): boolean { return this.delegateList.includes(element); }

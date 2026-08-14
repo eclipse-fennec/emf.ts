@@ -16,6 +16,7 @@ import { ETypeParameter } from '../ETypeParameter.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EOperation implementation
@@ -24,11 +25,11 @@ export class BasicEOperation extends BasicEObject implements EOperation {
   private name: string | null = null;
   private eContainingClass: EClass | null = null;
   private eType: EClassifier | null = null;
-  private eParameters: EParameter[] = [];
-  private eExceptions: EClassifier[] = [];
-  private eAnnotations: EAnnotation[] = [];
+  private eParameters: EList<EParameter> = createMetamodelEList<EParameter>(this);
+  private eExceptions: EList<EClassifier> = createMetamodelEList<EClassifier>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
   private eGenericType: EGenericType | null = null;
-  private eTypeParameters: ETypeParameter[] = [];
+  private eTypeParameters: EList<ETypeParameter> = createMetamodelEList<ETypeParameter>(this);
   private ordered: boolean = true;
   private unique: boolean = true;
   private lowerBound: number = 0;
@@ -66,7 +67,7 @@ export class BasicEOperation extends BasicEObject implements EOperation {
     this.eGenericType = value;
   }
 
-  getETypeParameters(): ETypeParameter[] {
+  getETypeParameters(): EList<ETypeParameter> {
     return this.eTypeParameters;
   }
 
@@ -74,20 +75,20 @@ export class BasicEOperation extends BasicEObject implements EOperation {
     this.eType = value;
   }
 
-  getEParameters(): EParameter[] {
+  getEParameters(): EList<EParameter> {
     return this.eParameters;
   }
 
   addParameter(parameter: EParameter): void {
-    this.eParameters.push(parameter);
+    this.eParameters.add(parameter);
   }
 
-  getEExceptions(): EClassifier[] {
+  getEExceptions(): EList<EClassifier> {
     return this.eExceptions;
   }
 
   addException(exception: EClassifier): void {
-    this.eExceptions.push(exception);
+    this.eExceptions.add(exception);
   }
 
   isMany(): boolean {
@@ -165,7 +166,7 @@ export class BasicEOperation extends BasicEObject implements EOperation {
   }
 
   // EObject methods
-  getEAnnotations(): EAnnotation[] {
+  getEAnnotations(): EList<EAnnotation> {
     return this.eAnnotations;
   }
 
@@ -222,24 +223,16 @@ export class BasicEOperation extends BasicEObject implements EOperation {
         this.eGenericType = newValue;
         break;
       case 'eTypeParameters':
-        if (Array.isArray(newValue)) {
-          this.eTypeParameters = newValue;
-        }
+        replaceListContents(this.eTypeParameters, newValue);
         break;
       case 'eParameters':
-        if (Array.isArray(newValue)) {
-          this.eParameters = newValue;
-        }
+        replaceListContents(this.eParameters, newValue);
         break;
       case 'eExceptions':
-        if (Array.isArray(newValue)) {
-          this.eExceptions = newValue;
-        }
+        replaceListContents(this.eExceptions, newValue);
         break;
       case 'eAnnotations':
-        if (Array.isArray(newValue)) {
-          this.eAnnotations = newValue;
-        }
+        replaceListContents(this.eAnnotations, newValue);
         break;
       case 'ordered':
         this.ordered = newValue === true || newValue === 'true';

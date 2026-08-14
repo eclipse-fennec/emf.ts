@@ -9,6 +9,7 @@
 import { EStructuralFeature } from './EStructuralFeature.js';
 import { EClass } from './EClass.js';
 import { EAttribute } from './EAttribute.js';
+import { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EReference'.
@@ -62,5 +63,5 @@ export interface EReference extends EStructuralFeature {
   /**
    * Returns the keys for map-like references.
    */
-  getEKeys(): EAttribute[];
+  getEKeys(): EList<EAttribute>;
 }

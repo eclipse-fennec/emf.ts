@@ -13,14 +13,15 @@ import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEDataType } from './BasicEDataType.js';
 import { BasicEEnumLiteral } from './BasicEEnumLiteral.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EEnum implementation
  */
 export class BasicEEnum extends BasicEDataType implements EEnum {
-  private eLiterals: BasicEEnumLiteral[] = [];
+  private eLiterals: EList<BasicEEnumLiteral> = createMetamodelEList<BasicEEnumLiteral>(this);
 
-  getELiterals(): EEnumLiteral[] {
+  getELiterals(): EList<EEnumLiteral> {
     return this.eLiterals;
   }
 
@@ -68,8 +69,7 @@ export class BasicEEnum extends BasicEDataType implements EEnum {
     const featureName = feature.getName();
     switch (featureName) {
       case 'eLiterals':
-        if (Array.isArray(newValue)) {
-          this.eLiterals = newValue;
+        if (replaceListContents(this.eLiterals, newValue)) {
           for (const lit of this.eLiterals) {
             if (lit instanceof BasicEEnumLiteral) {
               lit.setEEnum(this);

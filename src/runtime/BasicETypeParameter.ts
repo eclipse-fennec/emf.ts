@@ -13,6 +13,7 @@ import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic ETypeParameter implementation (#65).
@@ -21,8 +22,8 @@ import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
  */
 export class BasicETypeParameter extends BasicEObject implements ETypeParameter {
   private name: string | null = null;
-  private eBounds: EGenericType[] = [];
-  private eAnnotations: EAnnotation[] = [];
+  private eBounds: EList<EGenericType> = createMetamodelEList<EGenericType>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
 
   getName(): string | null {
     return this.name;
@@ -32,11 +33,11 @@ export class BasicETypeParameter extends BasicEObject implements ETypeParameter 
     this.name = value;
   }
 
-  getEBounds(): EGenericType[] {
+  getEBounds(): EList<EGenericType> {
     return this.eBounds;
   }
 
-  getEAnnotations(): EAnnotation[] {
+  getEAnnotations(): EList<EAnnotation> {
     return this.eAnnotations;
   }
 
@@ -67,14 +68,10 @@ export class BasicETypeParameter extends BasicEObject implements ETypeParameter 
         this.name = newValue;
         break;
       case 'eBounds':
-        if (Array.isArray(newValue)) {
-          this.eBounds = newValue;
-        }
+        replaceListContents(this.eBounds, newValue);
         break;
       case 'eAnnotations':
-        if (Array.isArray(newValue)) {
-          this.eAnnotations = newValue;
-        }
+        replaceListContents(this.eAnnotations, newValue);
         break;
     }
     super.eSet(feature, newValue);

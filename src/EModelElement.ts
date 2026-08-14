@@ -8,6 +8,7 @@
 
 import { EObject } from './EObject.js';
 import { EAnnotation } from './EAnnotation.js';
+import { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EModel Element'.
@@ -18,7 +19,7 @@ export interface EModelElement extends EObject {
    * Returns the list of annotations.
    * It represents additional associated information.
    */
-  getEAnnotations(): EAnnotation[];
+  getEAnnotations(): EList<EAnnotation>;
 
   /**
    * Return the annotation with a matching source attribute.

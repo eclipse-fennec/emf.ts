@@ -17,7 +17,7 @@ import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
 import { Adapter, isAdapterInternal } from '../notify/Adapter.js';
 import { Notification, NotificationImpl, NotificationType } from '../notify/Notification.js';
 import { Notifier } from '../notify/Notifier.js';
-import { EList, BasicEList, EObjectContainmentEList, EObjectEList, isEList, createContainmentEList, createEObjectEList, createBasicEList } from '../EList.js';
+import { BasicEList, EList, EObjectContainmentEList, EObjectEList, createBasicEList, createContainmentEList, createEObjectEList, isEList } from '../EList.js';
 
 /**
  * Minimal EObject implementation

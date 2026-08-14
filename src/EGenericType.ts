@@ -9,6 +9,7 @@
 import { EObject } from './EObject.js';
 import { EClassifier } from './EClassifier.js';
 import { ETypeParameter } from './ETypeParameter.js';
+import { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EGeneric Type'.
@@ -28,7 +29,7 @@ export interface EGenericType extends EObject {
   /**
    * Returns the list of type arguments.
    */
-  getETypeArguments(): EGenericType[];
+  getETypeArguments(): EList<EGenericType>;
 
   /**
    * Returns the raw type.

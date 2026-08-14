@@ -9,6 +9,7 @@
 import { EModelElement } from './EModelElement.js';
 import { EObject } from './EObject.js';
 import { EMap } from './EMap.js';
+import { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EAnnotation'.
@@ -43,10 +44,10 @@ export interface EAnnotation extends EModelElement {
   /**
    * Returns the list of contents (arbitrary EObjects).
    */
-  getContents(): EObject[];
+  getContents(): EList<EObject>;
 
   /**
    * Returns the list of references (arbitrary EObjects).
    */
-  getReferences(): EObject[];
+  getReferences(): EList<EObject>;
 }

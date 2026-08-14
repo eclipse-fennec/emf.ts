@@ -15,6 +15,7 @@ import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEObject } from './BasicEObject.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { EMap, createEMap } from '../EMap.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EAnnotation implementation
@@ -23,8 +24,8 @@ export class BasicEAnnotation extends BasicEObject implements EAnnotation {
   private source: string | null = null;
   private _detailsMap: EMap<string, string> | null = null;
   private eModelElement: EModelElement | null = null;
-  private contents: EObject[] = [];
-  private references: EObject[] = [];
+  private contents: EList<EObject> = createMetamodelEList<EObject>(this);
+  private references: EList<EObject> = createMetamodelEList<EObject>(this);
 
   private getOrCreateDetailsMap(): EMap<string, string> {
     if (!this._detailsMap) {
@@ -56,21 +57,23 @@ export class BasicEAnnotation extends BasicEObject implements EAnnotation {
     this.eModelElement = value;
   }
 
-  getContents(): EObject[] {
+  getContents(): EList<EObject> {
     return this.contents;
   }
 
-  getReferences(): EObject[] {
+  getReferences(): EList<EObject> {
     return this.references;
   }
 
   // EModelElement methods
-  getEAnnotations(): EAnnotation[] {
-    return [];
+  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+
+  getEAnnotations(): EList<EAnnotation> {
+    return this.eAnnotations;
   }
 
   getEAnnotation(source: string): EAnnotation | null {
-    return null;
+    return this.eAnnotations.find(a => a.getSource() === source) || null;
   }
 
   override eClass(): EClass {
@@ -117,16 +120,10 @@ export class BasicEAnnotation extends BasicEObject implements EAnnotation {
         super.eSet(feature, newValue);
         break;
       case 'contents':
-        if (Array.isArray(newValue)) {
-          this.contents = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.contents, newValue);
         break;
       case 'references':
-        if (Array.isArray(newValue)) {
-          this.references = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.references, newValue);
         break;
       default:
         super.eSet(feature, newValue);

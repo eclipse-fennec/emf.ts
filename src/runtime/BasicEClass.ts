@@ -15,18 +15,10 @@ import { EPackage } from '../EPackage.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import {
-  EList,
-  EObjectContainmentWithInverseEListLazy,
-  createIndexedProxy,
-  createMetamodelEList,
-  cachedDerivedList,
-  DerivedListCache,
-  replaceListContents,
-} from '../EList.js';
 import { ETypeParameter } from '../ETypeParameter.js';
 import { EGenericType } from '../EGenericType.js';
 import { EObject } from '../EObject.js';
+import { DerivedListCache, EList, EObjectContainmentWithInverseEListLazy, cachedDerivedList, createIndexedProxy, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EClass implementation
@@ -42,9 +34,9 @@ export class BasicEClass extends BasicEObject implements EClass {
   private instanceClassName: string | null = null;
   private instanceClass: Function | null = null;
   private featureID: number = 0;
-  private eTypeParameters: ETypeParameter[] = [];
-  private eGenericSuperTypes: EGenericType[] = [];
-  private eAnnotations: EAnnotation[] = [];
+  private eTypeParameters: EList<ETypeParameter> = createMetamodelEList<ETypeParameter>(this);
+  private eGenericSuperTypes: EList<EGenericType> = createMetamodelEList<EGenericType>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
   private xmlNameToFeature: Map<string, EStructuralFeature> = new Map();
 
   /**
@@ -341,7 +333,7 @@ export class BasicEClass extends BasicEObject implements EClass {
     this.ePackage = pkg;
   }
 
-  getETypeParameters(): ETypeParameter[] {
+  getETypeParameters(): EList<ETypeParameter> {
     return this.eTypeParameters;
   }
 
@@ -394,7 +386,7 @@ export class BasicEClass extends BasicEObject implements EClass {
   }
 
   // EObject methods
-  getEAnnotations(): EAnnotation[] {
+  getEAnnotations(): EList<EAnnotation> {
     return this.eAnnotations;
   }
 
@@ -466,22 +458,13 @@ export class BasicEClass extends BasicEObject implements EClass {
         replaceListContents(this.getEOperations(), newValue);
         break;
       case 'eTypeParameters':
-        if (Array.isArray(newValue)) {
-          this.eTypeParameters = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.eTypeParameters, newValue);
         break;
       case 'eGenericSuperTypes':
-        if (Array.isArray(newValue)) {
-          this.eGenericSuperTypes = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.eGenericSuperTypes, newValue);
         break;
       case 'eAnnotations':
-        if (Array.isArray(newValue)) {
-          this.eAnnotations = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.eAnnotations, newValue);
         break;
       case 'instanceClassName':
         this.instanceClassName = newValue;

@@ -8,6 +8,7 @@
 
 import { ENamedElement } from './ENamedElement.js';
 import { EGenericType } from './EGenericType.js';
+import { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EType Parameter'.
@@ -17,5 +18,5 @@ export interface ETypeParameter extends ENamedElement {
   /**
    * Returns the list of bounds for this type parameter.
    */
-  getEBounds(): EGenericType[];
+  getEBounds(): EList<EGenericType>;
 }

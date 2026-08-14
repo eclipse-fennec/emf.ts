@@ -16,6 +16,7 @@ import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { EPackageRegistry } from '../EPackage.js';
 import { isInternalEObject } from '../InternalEObject.js';
 import { resolveClassifierInPackage } from './resolveClassifierInPackage.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Abstract base class for EAttribute and EReference
@@ -34,7 +35,7 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
   private lowerBound: number = 0;
   private upperBound: number = 1;
   private featureID: number = -1;
-  protected eAnnotations: EAnnotation[] = [];
+  protected eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
 
   getName(): string | null {
     return this.name;
@@ -229,7 +230,7 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
   }
 
   // EObject methods
-  getEAnnotations(): EAnnotation[] {
+  getEAnnotations(): EList<EAnnotation> {
     return this.eAnnotations;
   }
 
@@ -327,10 +328,7 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
         super.eSet(feature, newValue);
         break;
       case 'eAnnotations':
-        if (Array.isArray(newValue)) {
-          this.eAnnotations = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.eAnnotations, newValue);
         break;
       default:
         super.eSet(feature, newValue);
