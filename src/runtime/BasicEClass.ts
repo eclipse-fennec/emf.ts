@@ -15,7 +15,15 @@ import { EPackage } from '../EPackage.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { EList, EObjectContainmentWithInverseEListLazy, createIndexedProxy } from '../EList.js';
+import {
+  EList,
+  EObjectContainmentWithInverseEListLazy,
+  createIndexedProxy,
+  createMetamodelEList,
+  cachedDerivedList,
+  DerivedListCache,
+  replaceListContents,
+} from '../EList.js';
 import { ETypeParameter } from '../ETypeParameter.js';
 import { EGenericType } from '../EGenericType.js';
 import { EObject } from '../EObject.js';
@@ -27,9 +35,9 @@ export class BasicEClass extends BasicEObject implements EClass {
   private _name: string | null = null;
   private abstract_: boolean = false;
   private interface_: boolean = false;
-  private eSuperTypes: EClass[] = [];
+  private _eSuperTypes: EList<EClass> | null = null;
   private _eStructuralFeatures: EList<EStructuralFeature> | null = null;
-  private eOperations: EOperation[] = [];
+  private _eOperations: EList<EOperation> | null = null;
   private ePackage: EPackage | null = null;
   private instanceClassName: string | null = null;
   private instanceClass: Function | null = null;
@@ -38,6 +46,19 @@ export class BasicEClass extends BasicEObject implements EClass {
   private eGenericSuperTypes: EGenericType[] = [];
   private eAnnotations: EAnnotation[] = [];
   private xmlNameToFeature: Map<string, EStructuralFeature> = new Map();
+
+  /**
+   * Caches for the derived lists, each invalidated by the global metamodel
+   * revision. See cachedDerivedList().
+   */
+  private allSuperTypesCache: { value: DerivedListCache<EClass> | null } = { value: null };
+  private allFeaturesCache: { value: DerivedListCache<EStructuralFeature> | null } = { value: null };
+  private attributesCache: { value: DerivedListCache<EAttribute> | null } = { value: null };
+  private allAttributesCache: { value: DerivedListCache<EAttribute> | null } = { value: null };
+  private referencesCache: { value: DerivedListCache<EReference> | null } = { value: null };
+  private allReferencesCache: { value: DerivedListCache<EReference> | null } = { value: null };
+  private allContainmentsCache: { value: DerivedListCache<EReference> | null } = { value: null };
+  private allOperationsCache: { value: DerivedListCache<EOperation> | null } = { value: null };
 
   // Public getter for PrimeVue compatibility (optionLabel="name")
   get name(): string | null {
@@ -68,26 +89,31 @@ export class BasicEClass extends BasicEObject implements EClass {
     this.interface_ = value;
   }
 
-  getESuperTypes(): EClass[] {
-    return this.eSuperTypes;
+  getESuperTypes(): EList<EClass> {
+    if (this._eSuperTypes === null) {
+      this._eSuperTypes = createMetamodelEList<EClass>(this, () => this.resolveOwnFeature('eSuperTypes'));
+    }
+    return this._eSuperTypes;
   }
 
-  getEAllSuperTypes(): EClass[] {
-    const all: EClass[] = [];
-    const visited = new Set<EClass>();
+  getEAllSuperTypes(): EList<EClass> {
+    return cachedDerivedList(this.allSuperTypesCache, 'getEAllSuperTypes', () => {
+      const all: EClass[] = [];
+      const visited = new Set<EClass>();
 
-    const collect = (eClass: EClass) => {
-      for (const superType of eClass.getESuperTypes()) {
-        if (!visited.has(superType)) {
-          visited.add(superType);
-          collect(superType);
-          all.push(superType);
+      const collect = (eClass: EClass) => {
+        for (const superType of eClass.getESuperTypes()) {
+          if (!visited.has(superType)) {
+            visited.add(superType);
+            collect(superType);
+            all.push(superType);
+          }
         }
-      }
-    };
+      };
 
-    collect(this);
-    return all;
+      collect(this);
+      return all;
+    });
   }
 
   getEIDAttribute(): EAttribute | null {
@@ -138,52 +164,91 @@ export class BasicEClass extends BasicEObject implements EClass {
     return this._eStructuralFeatures!;
   }
 
-  getEAllStructuralFeatures(): EStructuralFeature[] {
-    const all: EStructuralFeature[] = [];
+  getEAllStructuralFeatures(): EList<EStructuralFeature> {
+    return cachedDerivedList(this.allFeaturesCache, 'getEAllStructuralFeatures', () => {
+      const all: EStructuralFeature[] = [];
 
-    // Inherited features first (EMF standard ordering)
-    for (const superType of this.getEAllSuperTypes()) {
-      all.push(...superType.getEStructuralFeatures());
+      // Inherited features first (EMF standard ordering)
+      for (const superType of this.getEAllSuperTypes()) {
+        all.push(...superType.getEStructuralFeatures());
+      }
+
+      // Then own features
+      all.push(...this.getEStructuralFeatures());
+
+      return all;
+    });
+  }
+
+  getEAttributes(): EList<EAttribute> {
+    return cachedDerivedList(this.attributesCache, 'getEAttributes', () =>
+      this.getEStructuralFeatures().filter(f => this.isAttribute(f)) as EAttribute[]
+    );
+  }
+
+  getEAllAttributes(): EList<EAttribute> {
+    return cachedDerivedList(this.allAttributesCache, 'getEAllAttributes', () =>
+      this.getEAllStructuralFeatures().filter(f => this.isAttribute(f)) as EAttribute[]
+    );
+  }
+
+  getEReferences(): EList<EReference> {
+    return cachedDerivedList(this.referencesCache, 'getEReferences', () =>
+      this.getEStructuralFeatures().filter(f => this.isReference(f)) as EReference[]
+    );
+  }
+
+  getEAllReferences(): EList<EReference> {
+    return cachedDerivedList(this.allReferencesCache, 'getEAllReferences', () =>
+      this.getEAllStructuralFeatures().filter(f => this.isReference(f)) as EReference[]
+    );
+  }
+
+  getEAllContainments(): EList<EReference> {
+    return cachedDerivedList(this.allContainmentsCache, 'getEAllContainments', () =>
+      this.getEAllReferences().filter(ref => ref.isContainment())
+    );
+  }
+
+  getEOperations(): EList<EOperation> {
+    if (this._eOperations === null) {
+      this._eOperations = createMetamodelEList<EOperation>(this, () => this.resolveOwnFeature('eOperations'));
     }
-
-    // Then own features
-    all.push(...this.getEStructuralFeatures());
-
-    return all;
+    return this._eOperations;
   }
 
-  getEAttributes(): EAttribute[] {
-    return this.getEStructuralFeatures().filter(f => this.isAttribute(f)) as EAttribute[];
+  getEAllOperations(): EList<EOperation> {
+    return cachedDerivedList(this.allOperationsCache, 'getEAllOperations', () => {
+      const all: EOperation[] = [...this.getEOperations()];
+
+      for (const superType of this.getEAllSuperTypes()) {
+        all.push(...superType.getEOperations());
+      }
+
+      return all;
+    });
   }
 
-  getEAllAttributes(): EAttribute[] {
-    return this.getEAllStructuralFeatures().filter(f => this.isAttribute(f)) as EAttribute[];
-  }
-
-  getEReferences(): EReference[] {
-    return this.getEStructuralFeatures().filter(f => this.isReference(f)) as EReference[];
-  }
-
-  getEAllReferences(): EReference[] {
-    return this.getEAllStructuralFeatures().filter(f => this.isReference(f)) as EReference[];
-  }
-
-  getEAllContainments(): EReference[] {
-    return this.getEAllReferences().filter(ref => ref.isContainment());
-  }
-
-  getEOperations(): EOperation[] {
-    return this.eOperations;
-  }
-
-  getEAllOperations(): EOperation[] {
-    const all: EOperation[] = [...this.eOperations];
-
-    for (const superType of this.getEAllSuperTypes()) {
-      all.push(...superType.getEOperations());
+  /**
+   * Resolves one of this class's own metamodel features (eSuperTypes,
+   * eOperations, ...) on the Ecore EClass descriptor, for notifications.
+   *
+   * Returns null while the Ecore package is still bootstrapping, which is why
+   * the lists resolve their feature lazily rather than in the constructor.
+   */
+  private resolveOwnFeature(name: string): EStructuralFeature | null {
+    if (!ecoreRegistry.isRegistered()) {
+      return null;
     }
-
-    return all;
+    try {
+      const eClassClass = ecoreRegistry.getEClassClass();
+      if (eClassClass !== this && eClassClass instanceof BasicEClass && eClassClass._eStructuralFeatures !== null) {
+        return eClassClass.getEStructuralFeature(name);
+      }
+    } catch {
+      // Ignore during bootstrap
+    }
+    return null;
   }
 
   getEStructuralFeature(featureNameOrID: string | number): EStructuralFeature | null {
@@ -318,14 +383,14 @@ export class BasicEClass extends BasicEObject implements EClass {
    * Add operation to this class
    */
   addOperation(operation: EOperation): void {
-    this.eOperations.push(operation);
+    this.getEOperations().add(operation);
   }
 
   /**
    * Add super type
    */
   addSuperType(superType: EClass): void {
-    this.eSuperTypes.push(superType);
+    this.getESuperTypes().add(superType);
   }
 
   // EObject methods
@@ -354,11 +419,11 @@ export class BasicEClass extends BasicEObject implements EClass {
       case 'interface':
         return this.interface_;
       case 'eSuperTypes':
-        return this.eSuperTypes;
+        return this.getESuperTypes();
       case 'eStructuralFeatures':
         return this.getEStructuralFeatures();
       case 'eOperations':
-        return this.eOperations;
+        return this.getEOperations();
       case 'eTypeParameters':
         return this.eTypeParameters;
       case 'eGenericSuperTypes':
@@ -391,27 +456,14 @@ export class BasicEClass extends BasicEObject implements EClass {
         super.eSet(feature, newValue);
         break;
       case 'eSuperTypes':
-        if (Array.isArray(newValue)) {
-          this.eSuperTypes = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.getESuperTypes(), newValue);
         break;
       case 'eStructuralFeatures':
-        // Clear and re-add all features through the EList
-        // EList handles its own notifications, so don't call super.eSet
-        const featureList = this.getEStructuralFeatures();
-        featureList.clear();
-        if (Array.isArray(newValue)) {
-          featureList.addAll(newValue);
-        } else if (newValue && typeof newValue[Symbol.iterator] === 'function') {
-          featureList.addAll([...newValue]);
-        }
+        // The EList sends its own notifications, so super.eSet is not called.
+        replaceListContents(this.getEStructuralFeatures(), newValue);
         break;
       case 'eOperations':
-        if (Array.isArray(newValue)) {
-          this.eOperations = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.getEOperations(), newValue);
         break;
       case 'eTypeParameters':
         if (Array.isArray(newValue)) {

@@ -41,12 +41,15 @@ export interface EClass extends EClassifier {
   /**
    * Returns the list of super types.
    */
-  getESuperTypes(): EClass[];
+  getESuperTypes(): EList<EClass>;
 
   /**
-   * Returns the list of all super types (transitive closure).
+   * Returns all super types (transitive closure).
+   *
+   * Derived: the list is assembled from this class and its supertypes, so it is
+   * read-only - mutating methods throw. Modify getESuperTypes() instead.
    */
-  getEAllSuperTypes(): EClass[];
+  getEAllSuperTypes(): EList<EClass>;
 
   /**
    * Returns the ID attribute, or null.
@@ -63,44 +66,65 @@ export interface EClass extends EClassifier {
   getEStructuralFeatures(): EList<EStructuralFeature>;
 
   /**
-   * Returns the list of all structural features (including inherited).
+   * Returns all structural features, including inherited ones.
+   *
+   * Derived: the list is assembled from this class and its supertypes, so it is
+   * read-only - mutating methods throw. Modify getEStructuralFeatures() instead.
    */
-  getEAllStructuralFeatures(): EStructuralFeature[];
+  getEAllStructuralFeatures(): EList<EStructuralFeature>;
 
   /**
-   * Returns the list of attributes of this class only.
+   * Returns the attributes of this class only.
+   *
+   * Derived: the list is assembled from this class and its supertypes, so it is
+   * read-only - mutating methods throw. Modify getEStructuralFeatures() instead.
    */
-  getEAttributes(): EAttribute[];
+  getEAttributes(): EList<EAttribute>;
 
   /**
-   * Returns the list of all attributes (including inherited).
+   * Returns all attributes, including inherited ones.
+   *
+   * Derived: the list is assembled from this class and its supertypes, so it is
+   * read-only - mutating methods throw. Modify getEStructuralFeatures() instead.
    */
-  getEAllAttributes(): EAttribute[];
+  getEAllAttributes(): EList<EAttribute>;
 
   /**
-   * Returns the list of references of this class only.
+   * Returns the references of this class only.
+   *
+   * Derived: the list is assembled from this class and its supertypes, so it is
+   * read-only - mutating methods throw. Modify getEStructuralFeatures() instead.
    */
-  getEReferences(): EReference[];
+  getEReferences(): EList<EReference>;
 
   /**
-   * Returns the list of all references (including inherited).
+   * Returns all references, including inherited ones.
+   *
+   * Derived: the list is assembled from this class and its supertypes, so it is
+   * read-only - mutating methods throw. Modify getEStructuralFeatures() instead.
    */
-  getEAllReferences(): EReference[];
+  getEAllReferences(): EList<EReference>;
 
   /**
-   * Returns the list of all containment references.
+   * Returns all containment references.
+   *
+   * Derived: the list is assembled from this class and its supertypes, so it is
+   * read-only - mutating methods throw. Modify getEStructuralFeatures() instead.
    */
-  getEAllContainments(): EReference[];
+  getEAllContainments(): EList<EReference>;
 
   /**
    * Returns the list of operations of this class only.
    */
-  getEOperations(): EOperation[];
+  getEOperations(): EList<EOperation>;
 
   /**
-   * Returns the list of all operations (including inherited).
+   * Returns all operations, including inherited ones.
+   *
+   * Derived: the list is assembled from this class and its supertypes, so it is
+   * read-only - mutating methods throw. Modify getEOperations() instead.
    */
-  getEAllOperations(): EOperation[];
+  getEAllOperations(): EList<EOperation>;
 
   /**
    * Returns the structural feature with the given name, or null.
