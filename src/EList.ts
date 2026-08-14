@@ -1122,6 +1122,39 @@ export function toArray<T>(value: T[] | EList<T>): T[] {
 }
 
 /**
+ * Replaces the contents of an owned list with the given value.
+ *
+ * Used by eSet() for multi-valued features: the list itself must be kept, since
+ * it manages containment and notifications, so its contents are replaced rather
+ * than the field being reassigned. Accepts an array, another EList, or any
+ * iterable except a string.
+ *
+ * @returns true if the value was a sequence and the list was updated
+ */
+export function replaceListContents<T>(list: EList<T>, value: unknown): boolean {
+  let items: T[];
+  if (Array.isArray(value)) {
+    items = value as T[];
+  } else if (isEList<T>(value)) {
+    items = value.toArray();
+  } else if (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as any)[Symbol.iterator] === 'function'
+  ) {
+    items = [...(value as Iterable<T>)];
+  } else {
+    return false;
+  }
+
+  // Copy first: the value may be the list itself, or a view onto it.
+  const snapshot = [...items];
+  list.clear();
+  list.addAll(snapshot);
+  return true;
+}
+
+/**
  * A read-only view on a computed list.
  *
  * Derived accessors such as getEAllStructuralFeatures() do not own their
