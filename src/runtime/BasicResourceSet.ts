@@ -12,15 +12,19 @@ import { URI } from '../URI.js';
 import { EObject } from '../EObject.js';
 import { EPackage, EPackageRegistry, requireNsURI } from '../EPackage.js';
 import { BasicResource } from './BasicResource.js';
-import { EList, BasicEList, createIndexedProxy } from '../EList.js';
 import { EClass } from '../EClass.js';
 import { resolveClassifierInPackage } from './resolveClassifierInPackage.js';
+import { BasicEList, EList, createIndexedProxy } from '../EList.js';
 
 /**
  * Basic ResourceSet implementation
  */
 export class BasicResourceSet implements ResourceSet {
-  private resources: Resource[] = [];
+  /**
+   * Not a metamodel list: adding a resource must not invalidate the derived
+   * feature caches, so this uses a plain BasicEList rather than MetamodelEList.
+   */
+  private resources: EList<Resource> = new BasicEList<Resource>();
   private packageRegistry: EPackageRegistry;
   private resourceFactoryRegistry: Resource.FactoryRegistry;
   private uriConverter: URIConverter;
@@ -35,7 +39,7 @@ export class BasicResourceSet implements ResourceSet {
     this.uriConverter = this.createDefaultURIConverter();
   }
 
-  getResources(): Resource[] {
+  getResources(): EList<Resource> {
     return this.resources;
   }
 

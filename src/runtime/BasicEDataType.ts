@@ -14,6 +14,7 @@ import { EAnnotation } from '../EAnnotation.js';
 import { EStructuralFeature } from '../EStructuralFeature.js';
 import { ETypeParameter } from '../ETypeParameter.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EDataType implementation
@@ -24,8 +25,8 @@ export class BasicEDataType extends BasicEObject implements EDataType {
   private instanceClass: Function | null = null;
   private ePackage: EPackage | null = null;
   private serializable: boolean = true;
-  private eAnnotations: EAnnotation[] = [];
-  private eTypeParameters: ETypeParameter[] = [];
+  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+  private eTypeParameters: EList<ETypeParameter> = createMetamodelEList<ETypeParameter>(this);
 
   getName(): string | null {
     return this.name;
@@ -94,7 +95,7 @@ export class BasicEDataType extends BasicEObject implements EDataType {
     this.ePackage = pkg;
   }
 
-  getETypeParameters(): ETypeParameter[] {
+  getETypeParameters(): EList<ETypeParameter> {
     return this.eTypeParameters;
   }
 
@@ -139,7 +140,7 @@ export class BasicEDataType extends BasicEObject implements EDataType {
   }
 
   // EObject methods
-  getEAnnotations(): EAnnotation[] {
+  getEAnnotations(): EList<EAnnotation> {
     return this.eAnnotations;
   }
 
@@ -191,16 +192,10 @@ export class BasicEDataType extends BasicEObject implements EDataType {
         super.eSet(feature, newValue);
         break;
       case 'eAnnotations':
-        if (Array.isArray(newValue)) {
-          this.eAnnotations = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.eAnnotations, newValue);
         break;
       case 'eTypeParameters':
-        if (Array.isArray(newValue)) {
-          this.eTypeParameters = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.eTypeParameters, newValue);
         break;
       default:
         super.eSet(feature, newValue);

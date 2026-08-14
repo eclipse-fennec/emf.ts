@@ -14,8 +14,7 @@ import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { BasicEFactory } from './BasicEFactory.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { BasicEList, createIndexedProxy } from '../EList.js';
-import type { EList } from '../EList.js';
+import { BasicEList, EList, createIndexedProxy, createMetamodelEList } from '../EList.js';
 
 /**
  * Containment EList for EPackage.eClassifiers
@@ -272,8 +271,10 @@ export class BasicEPackage extends BasicEObject implements EPackage {
   }
 
   // EObject methods
-  getEAnnotations(): EAnnotation[] {
-    return [];
+  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+
+  getEAnnotations(): EList<EAnnotation> {
+    return this.eAnnotations;
   }
 
   getEAnnotation(source: string): EAnnotation | null {

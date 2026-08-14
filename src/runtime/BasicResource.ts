@@ -10,10 +10,10 @@ import { Resource } from '../Resource.js';
 import { ResourceSet } from '../ResourceSet.js';
 import { URI } from '../URI.js';
 import { EObject } from '../EObject.js';
-import { EList, createResourceContentsEList } from '../EList.js';
 import { Notifier } from '../notify/Notifier.js';
 import { Adapter } from '../notify/Adapter.js';
 import { Notification } from '../notify/Notification.js';
+import { EList, createResourceContentsEList } from '../EList.js';
 
 /**
  * Basic Resource implementation

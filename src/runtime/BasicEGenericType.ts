@@ -13,6 +13,7 @@ import { EClassifier } from '../EClassifier.js';
 import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEObject } from './BasicEObject.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EGenericType implementation (#65).
@@ -24,7 +25,7 @@ import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 export class BasicEGenericType extends BasicEObject implements EGenericType {
   private eClassifier: EClassifier | null = null;
   private eTypeParameter: ETypeParameter | null = null;
-  private eTypeArguments: EGenericType[] = [];
+  private eTypeArguments: EList<EGenericType> = createMetamodelEList<EGenericType>(this);
   private eUpperBound: EGenericType | null = null;
   private eLowerBound: EGenericType | null = null;
 
@@ -44,7 +45,7 @@ export class BasicEGenericType extends BasicEObject implements EGenericType {
     this.eTypeParameter = value;
   }
 
-  getETypeArguments(): EGenericType[] {
+  getETypeArguments(): EList<EGenericType> {
     return this.eTypeArguments;
   }
 
@@ -115,9 +116,7 @@ export class BasicEGenericType extends BasicEObject implements EGenericType {
         this.eTypeParameter = newValue;
         break;
       case 'eTypeArguments':
-        if (Array.isArray(newValue)) {
-          this.eTypeArguments = newValue;
-        }
+        replaceListContents(this.eTypeArguments, newValue);
         break;
       case 'eUpperBound':
         this.eUpperBound = newValue;

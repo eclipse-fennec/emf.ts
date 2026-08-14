@@ -8,6 +8,7 @@
 
 import { EDataType } from './EDataType.js';
 import { EEnumLiteral } from './EEnumLiteral.js';
+import { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EEnum'.
@@ -17,7 +18,7 @@ export interface EEnum extends EDataType {
   /**
    * Returns the list of literals for this enum.
    */
-  getELiterals(): EEnumLiteral[];
+  getELiterals(): EList<EEnumLiteral>;
 
   /**
    * Returns the literal with the given name.

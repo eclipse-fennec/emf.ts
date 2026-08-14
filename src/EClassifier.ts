@@ -9,6 +9,7 @@
 import { ENamedElement } from './ENamedElement.js';
 import { EPackage } from './EPackage.js';
 import { ETypeParameter } from './ETypeParameter.js';
+import { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EClassifier'.
@@ -63,7 +64,7 @@ export interface EClassifier extends ENamedElement {
   /**
    * Returns the list of type parameters.
    */
-  getETypeParameters(): ETypeParameter[];
+  getETypeParameters(): EList<ETypeParameter>;
 
   /**
    * Returns whether the object is an instance of this classifier.

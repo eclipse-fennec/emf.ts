@@ -13,6 +13,7 @@ import { EClass } from '../EClass.js';
 import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEObject } from './BasicEObject.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EEnumLiteral implementation
@@ -23,7 +24,7 @@ export class BasicEEnumLiteral extends BasicEObject implements EEnumLiteral {
   private instance: any = null;
   private literal: string | null = null;
   private eEnum: EEnum | null = null;
-  private eAnnotations: EAnnotation[] = [];
+  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
 
   getName(): string | null {
     return this._name;
@@ -71,7 +72,7 @@ export class BasicEEnumLiteral extends BasicEObject implements EEnumLiteral {
   }
 
   // EModelElement methods
-  getEAnnotations(): EAnnotation[] {
+  getEAnnotations(): EList<EAnnotation> {
     return this.eAnnotations;
   }
 
@@ -127,10 +128,7 @@ export class BasicEEnumLiteral extends BasicEObject implements EEnumLiteral {
         super.eSet(feature, newValue);
         break;
       case 'eAnnotations':
-        if (Array.isArray(newValue)) {
-          this.eAnnotations = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.eAnnotations, newValue);
         break;
       default:
         super.eSet(feature, newValue);

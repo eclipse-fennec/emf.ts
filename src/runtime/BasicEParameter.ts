@@ -15,6 +15,7 @@ import { EGenericType } from '../EGenericType.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EParameter implementation.
@@ -26,7 +27,7 @@ export class BasicEParameter extends BasicEObject implements EParameter {
   private name: string | null = null;
   private eType: EClassifier | null = null;
   private eOperation: EOperation | null = null;
-  private eAnnotations: EAnnotation[] = [];
+  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
   private eGenericType: EGenericType | null = null;
   private ordered: boolean = true;
   private unique: boolean = true;
@@ -109,7 +110,7 @@ export class BasicEParameter extends BasicEObject implements EParameter {
     this.upperBound = value;
   }
 
-  getEAnnotations(): EAnnotation[] {
+  getEAnnotations(): EList<EAnnotation> {
     return this.eAnnotations;
   }
 
@@ -160,9 +161,7 @@ export class BasicEParameter extends BasicEObject implements EParameter {
         this.eGenericType = newValue;
         break;
       case 'eAnnotations':
-        if (Array.isArray(newValue)) {
-          this.eAnnotations = newValue;
-        }
+        replaceListContents(this.eAnnotations, newValue);
         break;
       case 'ordered':
         this.ordered = newValue === true || newValue === 'true';

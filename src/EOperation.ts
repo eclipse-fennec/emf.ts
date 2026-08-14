@@ -10,6 +10,7 @@ import { ENamedElement } from './ENamedElement.js';
 import { EClass } from './EClass.js';
 import { EClassifier } from './EClassifier.js';
 import { EParameter } from './EParameter.js';
+import { EList } from './EList.js';
 
 /**
  * A representation of the model object 'EOperation'.
@@ -34,12 +35,12 @@ export interface EOperation extends ENamedElement {
   /**
    * Returns the list of parameters.
    */
-  getEParameters(): EParameter[];
+  getEParameters(): EList<EParameter>;
 
   /**
    * Returns the list of exceptions that this operation can throw.
    */
-  getEExceptions(): EClassifier[];
+  getEExceptions(): EList<EClassifier>;
 
   /**
    * Returns whether the operation is many-valued.

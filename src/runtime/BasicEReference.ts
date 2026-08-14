@@ -11,6 +11,7 @@ import { EClass } from '../EClass.js';
 import { EAttribute } from '../EAttribute.js';
 import { BasicEStructuralFeature } from './BasicEStructuralFeature.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EReference implementation
@@ -19,7 +20,7 @@ export class BasicEReference extends BasicEStructuralFeature implements EReferen
   private containment: boolean = false;
   private resolveProxies: boolean = true;
   private eOpposite: EReference | null = null;
-  private eKeys: EAttribute[] = [];
+  private eKeys: EList<EAttribute> = createMetamodelEList<EAttribute>(this);
 
   isContainment(): boolean {
     return this.containment;
@@ -77,12 +78,12 @@ export class BasicEReference extends BasicEStructuralFeature implements EReferen
     return type as EClass;
   }
 
-  getEKeys(): EAttribute[] {
+  getEKeys(): EList<EAttribute> {
     return this.eKeys;
   }
 
   addEKey(key: EAttribute): void {
-    this.eKeys.push(key);
+    this.eKeys.add(key);
   }
 
   getDefaultValue(): any {
@@ -131,10 +132,7 @@ export class BasicEReference extends BasicEStructuralFeature implements EReferen
         super.eSet(feature, newValue);
         break;
       case 'eKeys':
-        if (Array.isArray(newValue)) {
-          this.eKeys = newValue;
-        }
-        super.eSet(feature, newValue);
+        replaceListContents(this.eKeys, newValue);
         break;
       default:
         super.eSet(feature, newValue);
