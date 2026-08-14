@@ -5,6 +5,31 @@ All notable changes to the `emfts` package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed — BREAKING
+
+- **Every multi-valued accessor returns `EList<T>` instead of `T[]`** ([#68](https://github.com/eclipse-fennec/emf.ts/issues/68)). Java EMF returns an `EList` throughout; the mixed returns were a conformance gap and, per the report, the single most frequent porting mistake. Affects 21 accessors across 10 interfaces: `EClass` (`getESuperTypes`, `getEAllSuperTypes`, `getEAllStructuralFeatures`, `getEAttributes`, `getEAllAttributes`, `getEReferences`, `getEAllReferences`, `getEAllContainments`, `getEOperations`, `getEAllOperations`), `EOperation` (`getEParameters`, `getEExceptions`), `EAnnotation` (`getContents`, `getReferences`), `EModelElement` (`getEAnnotations`), `EEnum` (`getELiterals`), `EClassifier` (`getETypeParameters`), `ETypeParameter` (`getEBounds`), `EGenericType` (`getETypeArguments`), `EReference` (`getEKeys`), `ResourceSet` (`getResources`).
+
+  Most consumer code keeps working, because `EList` carries the array API: `length`, `list[i]`, `map`/`filter`/`find`/`some`/`every`/`reduce`, `push`/`pop`/`splice`, `sort`/`reverse`, spread, destructuring and `for...of`. Two things need attention:
+
+  - `Array.isArray(result)` is now `false`. The normalizing idiom `Array.isArray(v) ? v : [v]` takes the wrong branch — use the exported `isListValue(v)` / `toArray(v)` instead.
+  - Passing a result where a real array is required needs `Array.from(result)`.
+
+  See [docs/collections.md](./docs/collections.md) for the full migration notes.
+
+- **Derived accessors are read-only.** `getEAll*()`, `getEAttributes()`, `getEReferences()` and `getEAllContainments()` assemble their result from the class and its supertypes, so writing into it could never have an effect. Mutating methods now throw an `Error` naming the accessor, mirroring `EcoreEList.UnmodifiableEList` in Java EMF, which throws `UnsupportedOperationException`. Previously such a write appeared to succeed and was silently lost.
+
+### Added
+
+- Derived lists are cached and invalidated by a metamodel revision counter. Measured on a five-level hierarchy with 50 features: `getEAllStructuralFeatures()` drops from 3.4 µs to 0.31 µs per call, and repeated calls return the identical list object while the model is unchanged, as they do in Java EMF. Invalidation is transitive — adding a feature to a grandparent class refreshes its descendants' lists.
+- `UnmodifiableEList`, `MetamodelEList`, `createUnmodifiableEList()`, `createMetamodelEList()`, `isListValue()`, `toArray()`, `replaceListContents()`, `bumpMetamodelRevision()`, `currentMetamodelRevision()`, `cachedDerivedList()`.
+
+### Fixed
+
+- `getEAnnotations()` on `BasicEPackage`, `BasicEFactory` and `BasicEAnnotation` returned a hardcoded `[]`, so annotations on packages, factories and annotations themselves were unreachable — the same stub pattern that [#66](https://github.com/eclipse-fennec/emf.ts/issues/66) uncovered on `BasicEOperation`.
+- `filter`, `find`, `findIndex`, `some` and `every` on `EList` accept a predicate returning `unknown` rather than `boolean`, matching how TypeScript types `Array.prototype`. Callbacks of the form `x && y` type-check again.
+
 ## [0.1.1-next.18] - 2026-08-14
 
 ### Fixed

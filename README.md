@@ -83,9 +83,9 @@ console.log(name); // 'John Doe'
 
 ## Documentation
 
-- [Collections: EList, EMap and arrays](./docs/collections.md) — which accessors
-  return an `EList` and which return a plain array, and why `Array.isArray()` is
-  `false` on an `EList`
+- [Collections: EList and EMap](./docs/collections.md) — owned versus derived
+  lists, the array API available on an `EList`, why `Array.isArray()` is `false`,
+  and how to migrate code written against the earlier array returns
 - [Examples](./docs/examples/index.md) — dynamic models, factories, notifications,
   XMI/JSON persistence
 
