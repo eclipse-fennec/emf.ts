@@ -5,6 +5,14 @@ All notable changes to the `emfts` package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1-next.18] - 2026-08-14
+
+### Fixed
+
+- EEnum values in instance data are loaded as `EEnumLiteral` instead of raw strings ([#70](https://github.com/eclipse-fennec/emf.ts/issues/70)). `EFactory.createFromString()` had no EEnum branch, so an enum attribute ended up as the string from the file and an invalid value was accepted silently. The value is now resolved against the enum — by literal first, then by name, then by ordinal — and a value that matches none of them is reported in `resource.getErrors()` and leaves the feature unset, rather than being accepted or aborting the load.
+- `BasicEEnumLiteral.getLiteral()` falls back to the name when the `.ecore` declares no explicit `literal`, matching `EEnumLiteralImpl.getLiteral()` in Java EMF. Without the fallback a lookup by literal could not resolve anything for the majority of real `.ecore` files, where the attribute is omitted.
+- Enum attributes are serialized as their literal, not their name. `XMLSave` reached the generic EObject fallback and wrote `getName()`, which silently produced the wrong string whenever the literal differed from the name. Enum values now go through the factory, so a load/save cycle also normalizes a name or ordinal in the source file to the literal.
+
 ## [0.1.1-next.17] - 2026-08-14
 
 ### Added

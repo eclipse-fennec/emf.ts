@@ -7,6 +7,9 @@
  */
 
 import { EDataType } from '../EDataType.js';
+import { EEnum } from '../EEnum.js';
+import { EEnumLiteral } from '../EEnumLiteral.js';
+import { isEEnum } from '../util/TypeGuards.js';
 
 /**
  * Converter interface for DataType serialization/deserialization
@@ -215,9 +218,27 @@ class DataTypeRegistryImpl {
   }
 
   /**
-   * Convert a string literal to a value using the DataType's converter
+   * Convert a string literal to a value using the DataType's converter.
+   *
+   * For an EEnum the string is resolved to the matching EEnumLiteral, and an
+   * invalid value throws - same as EFactoryImpl.createFromString in Java EMF.
+   * The XMI loader turns that throw into a resource error, so a single bad
+   * attribute does not abort the document (see XMLHandler.setFeatureValue).
    */
   createFromString(dataType: EDataType, literal: string): any {
+    if (isEEnum(dataType)) {
+      if (literal === null || literal === undefined) {
+        return null;
+      }
+      const eEnumLiteral = this.resolveEEnumLiteral(dataType, literal);
+      if (!eEnumLiteral) {
+        throw new Error(
+          `The value '${literal}' is not a valid enumerator of '${dataType.getName()}'`
+        );
+      }
+      return eEnumLiteral.getInstance() ?? eEnumLiteral;
+    }
+
     const converter = this.getConverter(dataType);
     if (converter) {
       return converter.fromString(literal);
@@ -227,11 +248,22 @@ class DataTypeRegistryImpl {
   }
 
   /**
-   * Convert a value to a string literal using the DataType's converter
+   * Convert a value to a string literal using the DataType's converter.
+   *
+   * For an EEnum the literal string is written, not the name - Java EMF
+   * serializes enum values via EEnumLiteralImpl.toString(), which is getLiteral().
    */
   convertToString(dataType: EDataType, value: any): string {
     if (value === null || value === undefined) {
       return '';
+    }
+
+    if (isEEnum(dataType)) {
+      const eEnumLiteral = this.findEEnumLiteral(dataType, value);
+      if (eEnumLiteral) {
+        return eEnumLiteral.getLiteral() ?? '';
+      }
+      // Unknown value - fall through to String(), like Java's objectValue.toString()
     }
 
     const converter = this.getConverter(dataType);
@@ -240,6 +272,52 @@ class DataTypeRegistryImpl {
     }
     // Default: use String()
     return String(value);
+  }
+
+  /**
+   * Resolve a serialized enum value to its EEnumLiteral.
+   *
+   * Java EMF only ever looks up by literal. We additionally accept the name
+   * and the ordinal, because both are unambiguous and both occur in files
+   * written by non-conforming serializers - rejecting them would make those
+   * models unloadable for no gain. Saving always writes the literal back, so
+   * a load/save cycle normalizes the file.
+   */
+  private resolveEEnumLiteral(eEnum: EEnum, literal: string): EEnumLiteral | null {
+    const byLiteral = eEnum.getEEnumLiteralByLiteral(literal);
+    if (byLiteral) {
+      return byLiteral;
+    }
+
+    // Name lookup: relevant when the enum declares an explicit `literal` but
+    // the file carries the name instead.
+    const byName = eEnum.getEEnumLiteral(literal);
+    if (byName) {
+      return byName;
+    }
+
+    const trimmed = literal.trim();
+    if (/^-?\d+$/.test(trimmed)) {
+      return eEnum.getEEnumLiteral(Number(trimmed));
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve an enum value to its EEnumLiteral. Accepts the literal itself as
+   * well as the `instance` a generated enum carries.
+   */
+  private findEEnumLiteral(eEnum: EEnum, value: any): EEnumLiteral | null {
+    if (value && typeof value === 'object' && typeof value.getLiteral === 'function') {
+      return value as EEnumLiteral;
+    }
+    for (const eEnumLiteral of eEnum.getELiterals()) {
+      if (eEnumLiteral.getInstance() === value) {
+        return eEnumLiteral;
+      }
+    }
+    return null;
   }
 
   /**

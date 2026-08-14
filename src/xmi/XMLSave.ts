@@ -18,6 +18,7 @@ import { URI } from '../URI.js';
 import { XMLHelper, XMLHelperImpl } from './XMLHelper.js';
 import { XSI_URI, XMI_URI } from './XMLHandler.js';
 import { isEList } from '../EList.js';
+import { isEEnum } from '../util/TypeGuards.js';
 import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
 import {
   ExtendedMetaData,
@@ -821,6 +822,23 @@ export class XMLSave {
   protected convertToString(attr: EAttribute, value: any): string {
     if (value === null || value === undefined) return '';
 
+    // Handle arrays (multi-valued attributes) - serialize as space-separated values
+    if (Array.isArray(value) || isEList(value)) {
+      const items: string[] = [];
+      for (const item of value) {
+        if (item !== null && item !== undefined) {
+          items.push(this.convertSingleValueToString(attr, item));
+        }
+      }
+      return items.join(' ');
+    }
+
+    // Enum values must go through the factory, which writes the literal. The
+    // generic EObject fallback below would write getName() instead.
+    if (isEEnum(attr.getEType())) {
+      return this.convertSingleValueToString(attr, value);
+    }
+
     // If value is already a string (e.g., from unresolved proxy URI), return it
     if (typeof value === 'string') {
       return value;
@@ -834,17 +852,6 @@ export class XMLSave {
     // Handle numbers
     if (typeof value === 'number') {
       return String(value);
-    }
-
-    // Handle arrays (multi-valued attributes) - serialize as space-separated values
-    if (Array.isArray(value) || isEList(value)) {
-      const items: string[] = [];
-      for (const item of value) {
-        if (item !== null && item !== undefined) {
-          items.push(this.convertSingleValueToString(attr, item));
-        }
-      }
-      return items.join(' ');
     }
 
     // Handle EObject values (shouldn't happen for attributes, but just in case)
@@ -876,9 +883,14 @@ export class XMLSave {
    */
   protected convertSingleValueToString(attr: EAttribute, value: any): string {
     if (value === null || value === undefined) return '';
-    if (typeof value === 'string') return value;
-    if (typeof value === 'boolean') return value ? 'true' : 'false';
-    if (typeof value === 'number') return String(value);
+
+    // Enums are resolved to their literal by the factory, never shortcut here
+    const isEnum = isEEnum(attr.getEType());
+    if (!isEnum) {
+      if (typeof value === 'string') return value;
+      if (typeof value === 'boolean') return value ? 'true' : 'false';
+      if (typeof value === 'number') return String(value);
+    }
 
     const eType = attr.getEType();
     if (eType && 'getEPackage' in eType) {
