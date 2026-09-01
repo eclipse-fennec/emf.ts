@@ -536,9 +536,30 @@ export class XMLHandler {
     const eClass = obj.eClass();
     const feature = this.helper.getFeature(eClass, namespaceURI ?? null, name);
 
-    if (feature) {
-      this.setFeatureValue(obj, feature, value, -2);
+    if (!feature) {
+      return;
     }
+
+    // A multi-valued data type feature is written as one whitespace-separated
+    // attribute by XMLSave, so reading has to split it again - otherwise the
+    // whole attribute becomes a single entry and the round trip loses values
+    // (#75). This mirrors XMLHandler.setAttribValue in Java EMF.
+    //
+    // Only attributes are split. The text content of a child element is one
+    // value even when it contains spaces, which is how a value with spaces is
+    // represented in the first place.
+    if (this.helper.getFeatureKind(feature) === DATATYPE_IS_MANY) {
+      const tokens = value.trim().split(/\s+/);
+      for (const token of tokens) {
+        if (token.length > 0) {
+          // Append, so the order in the file is preserved.
+          this.setFeatureValue(obj, feature, token, -1);
+        }
+      }
+      return;
+    }
+
+    this.setFeatureValue(obj, feature, value, -2);
   }
 
   /**
