@@ -345,6 +345,12 @@ export class XMLSave {
           value = this.resolveValue(value, obj);
 
           if (value !== null && value !== undefined) {
+            // Values that cannot survive the whitespace-joined attribute form
+            // are written by writeElements() instead.
+            if (this.mustWriteAsElements(attr, value)) {
+              continue;
+            }
+
             // Get default value safely - may return null if type not properly set
             let defaultValue: any = null;
             try {
@@ -581,6 +587,31 @@ export class XMLSave {
   /**
    * Check if feature is an attribute (not a reference)
    */
+  /**
+   * Whether a multi-valued data type feature has to be written as child
+   * elements instead of one whitespace-separated attribute.
+   *
+   * The attribute form joins the values with a space, so it is only reversible
+   * while no value contains whitespace itself and none is empty - otherwise
+   * reading it back would split one value into several, or drop it (#75).
+   * Java EMF makes the same distinction in XMLSaveImpl.saveDataTypeMany().
+   */
+  protected mustWriteAsElements(attr: EAttribute, value: any): boolean {
+    if (!attr.isMany() || !(Array.isArray(value) || isEList(value))) {
+      return false;
+    }
+    for (const item of value) {
+      if (item === null || item === undefined) {
+        continue;
+      }
+      const asString = this.convertSingleValueToString(attr, item);
+      if (asString.length === 0 || /\s/.test(asString)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   protected isAttribute(feature: EStructuralFeature): boolean {
     return !('isContainment' in feature);
   }
@@ -602,6 +633,15 @@ export class XMLSave {
         const value = obj.eGet(feature);
         if (value !== null && value !== undefined) return true;
       }
+    }
+
+    // Multi-valued data type features that have to be written as elements
+    for (const feature of features) {
+      if (feature.isTransient() || feature.isDerived()) continue;
+      if (!this.isAttribute(feature)) continue;
+      const value = obj.eGet(feature);
+      if (value === null || value === undefined) continue;
+      if (this.mustWriteAsElements(feature as EAttribute, value)) return true;
     }
 
     for (const feature of features) {
@@ -666,6 +706,28 @@ export class XMLSave {
           const strVal = this.convertToString(attr, value);
           this.output.push(`<${elemName}>${this.escapeXml(strVal)}</${elemName}>\n`);
         }
+      }
+    }
+
+    // Multi-valued data type features whose values cannot be joined into one
+    // attribute, see mustWriteAsElements().
+    for (const feature of eClass.getEAllStructuralFeatures()) {
+      if (feature.isTransient() || feature.isDerived()) continue;
+      if (!this.isAttribute(feature)) continue;
+      if (emd && emd.getFeatureKind(feature) === ELEMENT_FEATURE) continue;
+
+      const value = obj.eGet(feature);
+      if (value === null || value === undefined) continue;
+
+      const attr = feature as EAttribute;
+      if (!this.mustWriteAsElements(attr, value)) continue;
+
+      const elemName = this.helper.getSerializedFeatureName(feature);
+      for (const item of value) {
+        if (item === null || item === undefined) continue;
+        this.writeIndent();
+        const strVal = this.convertSingleValueToString(attr, item);
+        this.output.push(`<${elemName}>${this.escapeXml(strVal)}</${elemName}>\n`);
       }
     }
 

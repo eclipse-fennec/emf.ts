@@ -5,6 +5,13 @@ All notable changes to the `emfts` package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Multi-valued attributes survive a save/load round trip ([#75](https://github.com/eclipse-fennec/emf.ts/issues/75)). `XMLSave` writes such a feature as one whitespace-separated attribute, but the reader took the whole attribute as a single entry: `EString` values were joined into one, numeric values beyond the first were dropped, and `[true, false]` came back as `[false]` — a wrong value rather than a missing one. `setAttribValue()` now splits a `DATATYPE_IS_MANY` attribute and converts each part individually, mirroring `XMLHandler.setAttribValue` in Java EMF. The text content of a child element is deliberately not split, since that is how a value containing spaces is represented.
+- Values that the attribute form cannot represent are written as child elements ([#75](https://github.com/eclipse-fennec/emf.ts/issues/75)). Joining with a space is only reversible while no value contains whitespace and none is empty — `["a b", "c"]` would otherwise read back as `["a", "b", "c"]`. Such lists are serialized as `<werte>a b</werte>` elements instead, as `XMLSaveImpl.saveDataTypeMany()` does in Java EMF. Simple values keep the compact attribute form.
+
 ## [0.2.0-next.1] - 2026-08-14
 
 ### Changed — BREAKING
