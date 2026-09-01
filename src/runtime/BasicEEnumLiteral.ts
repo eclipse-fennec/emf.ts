@@ -76,6 +76,20 @@ export class BasicEEnumLiteral extends BasicEObject implements EEnumLiteral {
     return this.eAnnotations;
   }
 
+  /**
+   * Returns the literal, so that a literal converted to a string reads as the
+   * value rather than as an object identity (#76).
+   *
+   * BasicEObject.toString() produces `EEnumLiteral@<hash>`, which is useful for
+   * a model object but wrong here: since enum attributes hold the EEnumLiteral
+   * itself, `String(value)` is what display, logging and comparison code hits.
+   * Java EMF does the same - EEnumLiteralImpl.toString() returns getLiteral(),
+   * which falls back to the name when no explicit literal is set.
+   */
+  override toString(): string {
+    return this.getLiteral() ?? '';
+  }
+
   getEAnnotation(source: string): EAnnotation | null {
     return this.eAnnotations.find(a => a.getSource() === source) || null;
   }
