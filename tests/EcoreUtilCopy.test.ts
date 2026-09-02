@@ -104,6 +104,74 @@ describe('EcoreUtil.copy copies deeply (#79)', () => {
   });
 });
 
+describe('EcoreUtil.copyShallow (#79)', () => {
+  let pkg: BasicEPackage;
+  let sensor: BasicEClass;
+
+  beforeEach(() => {
+    pkg = new BasicEPackage();
+    pkg.setName('p');
+    pkg.setNsURI('http://test.copy/shallow');
+    pkg.setNsPrefix('p');
+
+    sensor = new BasicEClass();
+    sensor.setName('Sensor');
+    sensor.setAbstract(true);
+    pkg.getEClassifiers().add(sensor);
+    sensor.getEStructuralFeatures().add(attribute('a'));
+  });
+
+  it('should copy attribute values', () => {
+    const copy = EcoreUtil.copyShallow(sensor);
+
+    expect(copy.getName()).toBe('Sensor');
+    expect(copy.isAbstract()).toBe(true);
+  });
+
+  it('should not copy containment children', () => {
+    // The point of the method: exactly the behaviour copy() had before.
+    const copy = EcoreUtil.copyShallow(sensor);
+
+    expect(copy.getEStructuralFeatures().size()).toBe(0);
+  });
+
+  it('should return a detached object', () => {
+    const copy = EcoreUtil.copyShallow(sensor);
+
+    expect(copy).not.toBe(sensor);
+    expect((copy as any).eContainer()).toBeNull();
+  });
+
+  it('should leave the original untouched', () => {
+    EcoreUtil.copyShallow(sensor);
+
+    expect(sensor.getEStructuralFeatures().size()).toBe(1);
+  });
+
+  it('should differ from copy(), which is deep', () => {
+    expect(EcoreUtil.copyShallow(sensor).getEStructuralFeatures().size()).toBe(0);
+    expect(EcoreUtil.copy(sensor).getEStructuralFeatures().size()).toBe(1);
+  });
+
+  it('should copy a multi-valued attribute', () => {
+    const withMany = new BasicEClass();
+    withMany.setName('Many');
+    pkg.getEClassifiers().add(withMany);
+    const attr = attribute('tags');
+    attr.setUpperBound(-1);
+    withMany.getEStructuralFeatures().add(attr);
+    const instance = pkg.getEFactoryInstance().create(withMany);
+    const values = instance.eGet(attr) as any;
+    values.add('x');
+    values.add('y');
+
+    const copy: any = EcoreUtil.copyShallow(instance);
+
+    expect((copy.eGet(attr) as any).toArray()).toEqual(['x', 'y']);
+    expect(copy.eGet(attr)).not.toBe(values);
+  });
+});
+
 describe('Cross-references when copying (#79)', () => {
   let pkg: BasicEPackage;
   let a: BasicEClass;
