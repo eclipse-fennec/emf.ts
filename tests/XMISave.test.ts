@@ -1064,8 +1064,11 @@ describe('XMI Serialization', () => {
       const xml = ecoreResource.saveToString();
       console.log('Cross-subpackage eSuperTypes XML:', xml);
 
-      // eSuperTypes href should use fragment path
-      expect(xml).toContain('href="#//base/Thing"');
+      // eSuperTypes is written as an attribute with a fragment path, the form
+      // real .ecore files use and the same form the eType test above expects.
+      // It previously became an href element only because eContainer() was not
+      // maintained for eClassifiers, so the target looked cross-document (#80).
+      expect(xml).toContain('eSuperTypes="#//base/Thing"');
       expect(xml).not.toContain('http://test.com/wp/base#//Thing');
     });
 
@@ -1159,8 +1162,11 @@ describe('XMI Serialization', () => {
       // Re-serialize — objects now have eResource() set from load
       const outputXml = loadResource.saveToString();
 
-      // eSuperTypes must still use fragment path, NOT nsURI-based href
-      expect(outputXml).toContain('href="#//base/Thing"');
+      // The input above uses the href element form, which stays readable; on
+      // output the attribute form is produced, which is what real .ecore files
+      // contain. What matters here is the fragment path rather than an
+      // nsURI-based reference (#39, #80).
+      expect(outputXml).toContain('eSuperTypes="#//base/Thing"');
       expect(outputXml).not.toMatch(/href="http:\/\/test\.com\/wp\/base/);
 
       // eType for cross-subpackage ref must use fragment path

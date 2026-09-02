@@ -13,6 +13,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-valued attributes survive a save/load round trip ([#75](https://github.com/eclipse-fennec/emf.ts/issues/75)). `XMLSave` writes such a feature as one whitespace-separated attribute, but the reader took the whole attribute as a single entry: `EString` values were joined into one, numeric values beyond the first were dropped, and `[true, false]` came back as `[false]` — a wrong value rather than a missing one. `setAttribValue()` now splits a `DATATYPE_IS_MANY` attribute and converts each part individually, mirroring `XMLHandler.setAttribValue` in Java EMF. The text content of a child element is deliberately not split, since that is how a value containing spaces is represented.
 - Values that the attribute form cannot represent are written as child elements ([#75](https://github.com/eclipse-fennec/emf.ts/issues/75)). Joining with a space is only reversible while no value contains whitespace and none is empty — `["a b", "c"]` would otherwise read back as `["a", "b", "c"]`. Such lists are serialized as `<werte>a b</werte>` elements instead, as `XMLSaveImpl.saveDataTypeMany()` does in Java EMF. Simple values keep the compact attribute form.
 
+## [Unreleased]
+
+### Changed — BREAKING
+
+- `EcoreUtil.copy()` copies deeply ([#79](https://github.com/eclipse-fennec/emf.ts/issues/79)). It used to copy the attribute values of the given object only, so containment children were dropped — a class came back without its features or operations. It now behaves as in Java EMF: children are copied, cross-references whose target lies inside the copied tree point at the copy, and references leaving the tree stay on the original, so a type reference keeps pointing at the same `EDataType`.
+
+  Callers who relied on the shallow behaviour get more than before; `EcoreUtil.copyShallow()` keeps that behaviour under its own name.
+
+### Added
+
+- `EcoreUtil.copyAll(objects)` copies several objects in one pass, so cross-references between them are redirected to the copies rather than left on the originals ([#79](https://github.com/eclipse-fennec/emf.ts/issues/79)). Copying one by one cannot achieve that, since each call would see the others as external.
+- `EcoreUtil.copyShallow(object)` copies attribute values only, without containment children or references — the behaviour `copy()` had before, kept for callers that want exactly that. Java EMF has no equivalent.
+- `Copier` exposes the original-to-copy `mapping`, for callers that need to find the copy of a given object. Java has this as the inner class `EcoreUtil.Copier`, a `Map` subclass; in TypeScript it is a named export, so `import { Copier }` rather than `EcoreUtil.Copier`.
+
+### Fixed
+
+- `eContainer()` is set for classifiers and subpackages ([#80](https://github.com/eclipse-fennec/emf.ts/issues/80)). `EClassifiersEList` and `ESubpackagesEList` extended `BasicEList`, which knows nothing about containment, while `EClass.eStructuralFeatures` used the containment variant — so an `EAttribute` knew its `EClass` but an `EClass` did not know its `EPackage`. Both lists extend `EObjectContainmentWithInverseEListLazy` now, which maintains the container alongside the existing `ePackage`/`eSuperPackage` back-references and detaches an element from its previous container, as Java EMF does for every containment reference.
+
+  Everything walking up the tree answered silently wrong before and is fixed with it: `EcoreUtil.getRootContainer()` returned the classifier instead of the package, `EcoreUtil.isAncestor()` returned `false` for a class inside its own package, and `EcoreUtil.getURI()` worked on a truncated tree.
+
+- As a consequence, `eSuperTypes` pointing at a class in a sibling subpackage is serialized as an attribute with a fragment path (`eSuperTypes="#//base/Thing"`) instead of an `href` element. The target only looked cross-document because the container chain ended at the classifier. This is the form real `.ecore` files use, matches what `eType` already produced, and the `href` element form is still read. Two expectations in `tests/XMISave.test.ts` encoded the old output and were updated.
+
 ## [0.2.0-next.1] - 2026-08-14
 
 ### Changed — BREAKING
