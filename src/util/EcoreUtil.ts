@@ -17,6 +17,29 @@ import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
 import { EList, toArray, replaceListContents } from '../EList.js';
 
 /**
+ * Copies one attribute value from one object to another.
+ *
+ * A multi-valued attribute has to be filled through its list rather than by
+ * assigning the value, since the list belongs to the target object.
+ */
+function copyAttributeValue(feature: EStructuralFeature, from: EObject, to: EObject): void {
+  const value = from.eGet(feature);
+  if (value === null || value === undefined) {
+    return;
+  }
+
+  if (feature.isMany()) {
+    const values = toArray(value as any);
+    if (values.length > 0) {
+      replaceListContents(to.eGet(feature) as EList<unknown>, values);
+    }
+    return;
+  }
+
+  to.eSet(feature, value);
+}
+
+/**
  * EcoreUtil provides utility methods for working with Ecore models.
  */
 export class EcoreUtil {
@@ -278,6 +301,30 @@ export class EcoreUtil {
   }
 
   /**
+   * Copies the attribute values of the given object, nothing else.
+   *
+   * Containment children are not copied and references are not set, so the
+   * result is a detached object carrying the same attribute values. This is
+   * what copy() did before it was made deep (#79); it is kept under its own
+   * name for callers that want exactly this.
+   *
+   * Java EMF has no equivalent - use copy() unless a values-only copy is
+   * specifically what you need.
+   */
+  static copyShallow<T extends EObject>(object: T): T {
+    const eClass = object.eClass();
+    const copy = EcoreUtil.create(eClass);
+
+    for (const attr of eClass.getEAllAttributes()) {
+      if (!attr.isDerived() && !attr.isTransient()) {
+        copyAttributeValue(attr, object, copy);
+      }
+    }
+
+    return copy as T;
+  }
+
+  /**
    * Returns all objects of the given type in the resource.
    */
   static getAllContents<T extends EObject>(resource: Resource, type: EClass): T[] {
@@ -412,20 +459,7 @@ export class Copier {
   }
 
   protected copyAttribute(feature: EStructuralFeature, original: EObject, copy: EObject): void {
-    const value = original.eGet(feature);
-    if (value === null || value === undefined) {
-      return;
-    }
-
-    if (feature.isMany()) {
-      const values = toArray(value as any);
-      if (values.length > 0) {
-        replaceListContents(copy.eGet(feature) as EList<unknown>, values);
-      }
-      return;
-    }
-
-    copy.eSet(feature, value);
+    copyAttributeValue(feature, original, copy);
   }
 
   protected copyContainment(feature: EStructuralFeature, original: EObject, copy: EObject): void {

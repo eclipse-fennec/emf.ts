@@ -19,11 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `EcoreUtil.copy()` copies deeply ([#79](https://github.com/eclipse-fennec/emf.ts/issues/79)). It used to copy the attribute values of the given object only, so containment children were dropped — a class came back without its features or operations. It now behaves as in Java EMF: children are copied, cross-references whose target lies inside the copied tree point at the copy, and references leaving the tree stay on the original, so a type reference keeps pointing at the same `EDataType`.
 
-  Callers who relied on the shallow behaviour get more than before. No `copyShallow()` was added: Java has no such method, and copying attributes alone is a short loop over `getEAllAttributes()`. Say so on the issue if a named variant would help.
+  Callers who relied on the shallow behaviour get more than before; `EcoreUtil.copyShallow()` keeps that behaviour under its own name.
 
 ### Added
 
 - `EcoreUtil.copyAll(objects)` copies several objects in one pass, so cross-references between them are redirected to the copies rather than left on the originals ([#79](https://github.com/eclipse-fennec/emf.ts/issues/79)). Copying one by one cannot achieve that, since each call would see the others as external.
+- `EcoreUtil.copyShallow(object)` copies attribute values only, without containment children or references — the behaviour `copy()` had before, kept for callers that want exactly that. Java EMF has no equivalent.
 - `Copier` exposes the original-to-copy `mapping`, for callers that need to find the copy of a given object. Java has this as the inner class `EcoreUtil.Copier`, a `Map` subclass; in TypeScript it is a named export, so `import { Copier }` rather than `EcoreUtil.Copier`.
 
 ### Fixed
