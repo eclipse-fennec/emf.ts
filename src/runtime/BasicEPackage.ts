@@ -14,153 +14,73 @@ import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { BasicEFactory } from './BasicEFactory.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { BasicEList, EList, createIndexedProxy, createMetamodelEList } from '../EList.js';
+import { EObject } from '../EObject.js';
+import { EReference } from '../EReference.js';
+import {
+  BasicEList,
+  EList,
+  EObjectContainmentWithInverseEListLazy,
+  createIndexedProxy,
+  createMetamodelEList,
+} from '../EList.js';
 
 /**
- * Containment EList for EPackage.eClassifiers
- * Manages the bidirectional ePackage <-> eClassifiers relationship
- * and sends notifications on modifications.
+ * Containment EList for EPackage.eClassifiers.
+ *
+ * Extends the containment variant so that adding a classifier sets its
+ * eContainer, not only the ePackage back-reference (#80). Without this any walk
+ * up the tree - EcoreUtil.getRootContainer(), isAncestor(), getURI() - stopped
+ * at the classifier.
+ *
+ * The feature is resolved lazily: package instances exist before the Ecore
+ * package describing them has finished bootstrapping.
  */
-class EClassifiersEList extends BasicEList<EClassifier> {
-  private pkg: BasicEPackage;
-
+class EClassifiersEList extends EObjectContainmentWithInverseEListLazy<EClassifier> {
   constructor(pkg: BasicEPackage) {
-    super(pkg, null); // feature will be resolved lazily
-    this.pkg = pkg;
-  }
-
-  /**
-   * Lazily resolve the eClassifiers feature from EcorePackage.
-   * This avoids circular dependency issues during initialization.
-   */
-  override getFeature() {
-    if (!this.feature) {
-      const isReg = ecoreRegistry.isRegistered();
-      if (isReg) {
-        const ePackageClass = ecoreRegistry.getEPackageClass();
-        this.feature = ePackageClass.getEStructuralFeature('eClassifiers');
+    super(
+      pkg,
+      () => {
+        if (!ecoreRegistry.isRegistered()) {
+          return null;
+        }
+        return ecoreRegistry.getEPackageClass().getEStructuralFeature('eClassifiers') as EReference;
+      },
+      (element: EClassifier, owner: EObject | null) => {
+        // Inverse reference: classifier.ePackage = owner
+        if ('setEPackage' in element && typeof (element as any).setEPackage === 'function') {
+          (element as any).setEPackage(owner as EPackage | null);
+        }
       }
-    }
-    return this.feature;
-  }
-
-  protected override didAdd(index: number, element: EClassifier): void {
-    // Set back-reference: classifier.ePackage = this package
-    if ('setEPackage' in element && typeof (element as any).setEPackage === 'function') {
-      (element as any).setEPackage(this.pkg);
-    }
-    super.didAdd(index, element);
-  }
-
-  protected override didAddMany(index: number, elements: EClassifier[]): void {
-    for (const element of elements) {
-      if ('setEPackage' in element && typeof (element as any).setEPackage === 'function') {
-        (element as any).setEPackage(this.pkg);
-      }
-    }
-    super.didAddMany(index, elements);
-  }
-
-  protected override didRemove(index: number, element: EClassifier): void {
-    // Clear back-reference: classifier.ePackage = null
-    if ('setEPackage' in element && typeof (element as any).setEPackage === 'function') {
-      (element as any).setEPackage(null);
-    }
-    super.didRemove(index, element);
-  }
-
-  protected override didClear(oldData: EClassifier[]): void {
-    for (const element of oldData) {
-      if ('setEPackage' in element && typeof (element as any).setEPackage === 'function') {
-        (element as any).setEPackage(null);
-      }
-    }
-    super.didClear(oldData);
-  }
-
-  protected override didSet(index: number, newElement: EClassifier, oldElement: EClassifier): void {
-    if ('setEPackage' in oldElement && typeof (oldElement as any).setEPackage === 'function') {
-      (oldElement as any).setEPackage(null);
-    }
-    if ('setEPackage' in newElement && typeof (newElement as any).setEPackage === 'function') {
-      (newElement as any).setEPackage(this.pkg);
-    }
-    super.didSet(index, newElement, oldElement);
+    );
   }
 }
 
 /**
- * Containment EList for EPackage.eSubpackages
- * Manages the bidirectional eSuperPackage <-> eSubpackages relationship
- * and sends notifications on modifications.
+ * Containment EList for EPackage.eSubpackages.
+ *
+ * Same reasoning as EClassifiersEList: a subpackage has to know its container,
+ * not only its eSuperPackage (#80).
  */
-class ESubpackagesEList extends BasicEList<EPackage> {
-  private pkg: BasicEPackage;
-
+class ESubpackagesEList extends EObjectContainmentWithInverseEListLazy<EPackage> {
   constructor(pkg: BasicEPackage) {
-    super(pkg, null); // feature will be resolved lazily
-    this.pkg = pkg;
-  }
-
-  /**
-   * Lazily resolve the eSubpackages feature from EcorePackage.
-   * This avoids circular dependency issues during initialization.
-   */
-  override getFeature() {
-    if (!this.feature && ecoreRegistry.isRegistered()) {
-      const ePackageClass = ecoreRegistry.getEPackageClass();
-      this.feature = ePackageClass.getEStructuralFeature('eSubpackages');
-    }
-    return this.feature;
-  }
-
-  protected override didAdd(index: number, element: EPackage): void {
-    if (element instanceof BasicEPackage) {
-      (element as any).eSuperPackage = this.pkg;
-    }
-    super.didAdd(index, element);
-  }
-
-  protected override didAddMany(index: number, elements: EPackage[]): void {
-    for (const element of elements) {
-      if (element instanceof BasicEPackage) {
-        (element as any).eSuperPackage = this.pkg;
+    super(
+      pkg,
+      () => {
+        if (!ecoreRegistry.isRegistered()) {
+          return null;
+        }
+        return ecoreRegistry.getEPackageClass().getEStructuralFeature('eSubpackages') as EReference;
+      },
+      (element: EPackage, owner: EObject | null) => {
+        // Inverse reference: subpackage.eSuperPackage = owner
+        if (element instanceof BasicEPackage) {
+          (element as any).eSuperPackage = owner;
+        }
       }
-    }
-    super.didAddMany(index, elements);
-  }
-
-  protected override didRemove(index: number, element: EPackage): void {
-    if (element instanceof BasicEPackage) {
-      (element as any).eSuperPackage = null;
-    }
-    super.didRemove(index, element);
-  }
-
-  protected override didClear(oldData: EPackage[]): void {
-    for (const element of oldData) {
-      if (element instanceof BasicEPackage) {
-        (element as any).eSuperPackage = null;
-      }
-    }
-    super.didClear(oldData);
-  }
-
-  protected override didSet(index: number, newElement: EPackage, oldElement: EPackage): void {
-    if (oldElement instanceof BasicEPackage) {
-      (oldElement as any).eSuperPackage = null;
-    }
-    if (newElement instanceof BasicEPackage) {
-      (newElement as any).eSuperPackage = this.pkg;
-    }
-    super.didSet(index, newElement, oldElement);
+    );
   }
 }
 
-/**
- * Basic EPackage implementation
- * Similar to org.eclipse.emf.ecore.impl.EPackageImpl
- */
 export class BasicEPackage extends BasicEObject implements EPackage {
   private name: string | null = null;
   private nsURI: string | null = null;
