@@ -93,6 +93,8 @@ export class BasicEAnnotation extends BasicEObject implements EAnnotation {
         return this.contents;
       case 'references':
         return this.references;
+      case 'eAnnotations':
+        return this.eAnnotations;
       default:
         return super.eGet(feature);
     }
@@ -124,6 +126,9 @@ export class BasicEAnnotation extends BasicEObject implements EAnnotation {
         break;
       case 'references':
         replaceListContents(this.references, newValue);
+        break;
+      case 'eAnnotations':
+        replaceListContents(this.eAnnotations, newValue);
         break;
       default:
         super.eSet(feature, newValue);
