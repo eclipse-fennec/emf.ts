@@ -19,6 +19,11 @@ import {
   BasicEAttribute,
   BasicEDataType,
   BasicEEnum,
+  BasicEEnumLiteral,
+  BasicEOperation,
+  BasicEParameter,
+  BasicEAnnotation,
+  BasicETypeParameter,
   EcoreDataTypes,
   EcoreUtil,
 } from '../src';
@@ -154,6 +159,108 @@ describe('Containment of classifiers and subpackages (#80)', () => {
       expect((eClass as any).eContainer()).toBe(subPkg);
       expect(eClass.getEPackage()).toBe(subPkg);
       expect(pkg.getEClassifiers().contains(eClass)).toBe(false);
+    });
+  });
+});
+
+/**
+ * The same gap, at the six lists #80 did not cover (#98).
+ *
+ * eOperations, eParameters, eLiterals, eTypeParameters and the eAnnotations of
+ * every class used createMetamodelEList(), which does not set eContainer. An
+ * operation therefore had no fragment at all - getURIFragment() stopped at the
+ * first step and returned the bare root - so nothing could reference it across
+ * documents.
+ */
+describe('Containment of operations, parameters, literals and annotations (#98)', () => {
+  function metamodel() {
+    const pkg = new BasicEPackage();
+    pkg.setName('m');
+    pkg.setNsURI('http://test.containment/m');
+    pkg.setNsPrefix('m');
+
+    const eClass = new BasicEClass();
+    eClass.setName('C');
+    pkg.getEClassifiers().add(eClass);
+
+    const operation = new BasicEOperation();
+    operation.setName('op');
+    eClass.getEOperations().add(operation);
+
+    const parameter = new BasicEParameter();
+    parameter.setName('p');
+    operation.getEParameters().add(parameter);
+
+    const eEnum = new BasicEEnum();
+    eEnum.setName('E');
+    pkg.getEClassifiers().add(eEnum);
+
+    const literal = new BasicEEnumLiteral();
+    literal.setName('L');
+    eEnum.getELiterals().add(literal);
+
+    const annotation = new BasicEAnnotation();
+    annotation.setSource('http://example.org/doc');
+    eClass.getEAnnotations().add(annotation);
+
+    const typeParameter = new BasicETypeParameter();
+    typeParameter.setName('T');
+    eClass.getETypeParameters().add(typeParameter);
+
+    return { pkg, eClass, operation, parameter, eEnum, literal, annotation, typeParameter };
+  }
+
+  describe('eContainer is set', () => {
+    it.each([
+      ['an operation', (m: any) => [m.operation, m.eClass]],
+      ['a parameter', (m: any) => [m.parameter, m.operation]],
+      ['an enum literal', (m: any) => [m.literal, m.eEnum]],
+      ['an annotation', (m: any) => [m.annotation, m.eClass]],
+      ['a type parameter', (m: any) => [m.typeParameter, m.eClass]],
+      ['an annotation on a package', (m: any) => {
+        const annotation = new BasicEAnnotation();
+        annotation.setSource('http://example.org/pkg');
+        m.pkg.getEAnnotations().add(annotation);
+        return [annotation, m.pkg];
+      }],
+    ])('for %s', (_label, pick) => {
+      const [child, expected] = pick(metamodel());
+
+      expect(child.eContainer()).toBe(expected);
+    });
+  });
+
+  describe('the typed back-references still work', () => {
+    it('should keep eContainingClass, eOperation, eEnum and eModelElement', () => {
+      const m = metamodel();
+
+      expect(m.operation.getEContainingClass()).toBe(m.eClass);
+      expect(m.parameter.getEOperation()).toBe(m.operation);
+      expect(m.literal.getEEnum()).toBe(m.eEnum);
+      expect(m.annotation.getEModelElement()).toBe(m.eClass);
+    });
+
+    it('should clear both sides on removal', () => {
+      const m = metamodel();
+
+      m.eClass.getEOperations().remove(m.operation);
+
+      expect(m.operation.eContainer()).toBeNull();
+      expect(m.operation.getEContainingClass()).toBeNull();
+    });
+  });
+
+  describe('walking up the tree', () => {
+    it('should reach the package from a parameter', () => {
+      const m = metamodel();
+
+      expect(EcoreUtil.getRootContainer(m.parameter)).toBe(m.pkg);
+    });
+
+    it('should see the package as an ancestor of an operation', () => {
+      const m = metamodel();
+
+      expect(EcoreUtil.isAncestor(m.pkg, m.operation)).toBe(true);
     });
   });
 });

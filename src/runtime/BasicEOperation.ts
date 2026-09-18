@@ -16,7 +16,8 @@ import { ETypeParameter } from '../ETypeParameter.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
+import { EList, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EOperation implementation
@@ -25,11 +26,17 @@ export class BasicEOperation extends BasicEObject implements EOperation {
   private name: string | null = null;
   private eContainingClass: EClass | null = null;
   private eType: EClassifier | null = null;
-  private eParameters: EList<EParameter> = createMetamodelEList<EParameter>(this);
+  private eParameters: EList<EParameter> = createMetamodelContainmentEList<EParameter>(
+    this,
+    undefined,
+    (parameter, owner) => (parameter as any).setEOperation(owner)
+  );
   private eExceptions: EList<EClassifier> = createMetamodelEList<EClassifier>(this);
-  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
+    (annotation as any).setEModelElement(owner)
+  );
   private eGenericType: EGenericType | null = null;
-  private eTypeParameters: EList<ETypeParameter> = createMetamodelEList<ETypeParameter>(this);
+  private eTypeParameters: EList<ETypeParameter> = createMetamodelContainmentEList<ETypeParameter>(this);
   private ordered: boolean = true;
   private unique: boolean = true;
   private lowerBound: number = 0;

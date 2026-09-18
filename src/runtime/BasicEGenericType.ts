@@ -13,7 +13,8 @@ import { EClassifier } from '../EClassifier.js';
 import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEObject } from './BasicEObject.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
+import { EList, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EGenericType implementation (#65).
@@ -25,7 +26,7 @@ import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 export class BasicEGenericType extends BasicEObject implements EGenericType {
   private eClassifier: EClassifier | null = null;
   private eTypeParameter: ETypeParameter | null = null;
-  private eTypeArguments: EList<EGenericType> = createMetamodelEList<EGenericType>(this);
+  private eTypeArguments: EList<EGenericType> = createMetamodelContainmentEList<EGenericType>(this);
   private eUpperBound: EGenericType | null = null;
   private eLowerBound: EGenericType | null = null;
 

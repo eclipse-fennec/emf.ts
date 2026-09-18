@@ -18,7 +18,8 @@ import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { ETypeParameter } from '../ETypeParameter.js';
 import { EGenericType } from '../EGenericType.js';
 import { EObject } from '../EObject.js';
-import { DerivedListCache, EList, EObjectContainmentWithInverseEListLazy, cachedDerivedList, createIndexedProxy, createMetamodelEList, replaceListContents } from '../EList.js';
+import { DerivedListCache, EList, EObjectContainmentWithInverseEListLazy, cachedDerivedList, createIndexedProxy, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EClass implementation
@@ -34,9 +35,11 @@ export class BasicEClass extends BasicEObject implements EClass {
   private instanceClassName: string | null = null;
   private instanceClass: Function | null = null;
   private featureID: number = 0;
-  private eTypeParameters: EList<ETypeParameter> = createMetamodelEList<ETypeParameter>(this);
-  private eGenericSuperTypes: EList<EGenericType> = createMetamodelEList<EGenericType>(this);
-  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+  private eTypeParameters: EList<ETypeParameter> = createMetamodelContainmentEList<ETypeParameter>(this);
+  private eGenericSuperTypes: EList<EGenericType> = createMetamodelContainmentEList<EGenericType>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
+    (annotation as any).setEModelElement(owner)
+  );
   private xmlNameToFeature: Map<string, EStructuralFeature> = new Map();
 
   /**
@@ -204,7 +207,11 @@ export class BasicEClass extends BasicEObject implements EClass {
 
   getEOperations(): EList<EOperation> {
     if (this._eOperations === null) {
-      this._eOperations = createMetamodelEList<EOperation>(this, () => this.resolveOwnFeature('eOperations'));
+      this._eOperations = createMetamodelContainmentEList<EOperation>(
+        this,
+        () => this.resolveOwnFeature('eOperations') as EReference | null,
+        (operation, owner) => (operation as any).setEContainingClass(owner)
+      );
     }
     return this._eOperations;
   }

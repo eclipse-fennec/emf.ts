@@ -13,13 +13,18 @@ import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEDataType } from './BasicEDataType.js';
 import { BasicEEnumLiteral } from './BasicEEnumLiteral.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
+import { EList, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EEnum implementation
  */
 export class BasicEEnum extends BasicEDataType implements EEnum {
-  private eLiterals: EList<BasicEEnumLiteral> = createMetamodelEList<BasicEEnumLiteral>(this);
+  private eLiterals: EList<BasicEEnumLiteral> = createMetamodelContainmentEList<BasicEEnumLiteral>(
+    this,
+    undefined,
+    (literal, owner) => (literal as any).setEEnum(owner)
+  );
 
   getELiterals(): EList<EEnumLiteral> {
     return this.eLiterals;

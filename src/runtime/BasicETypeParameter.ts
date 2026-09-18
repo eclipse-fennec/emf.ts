@@ -13,7 +13,8 @@ import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
+import { EList, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic ETypeParameter implementation (#65).
@@ -22,8 +23,10 @@ import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
  */
 export class BasicETypeParameter extends BasicEObject implements ETypeParameter {
   private name: string | null = null;
-  private eBounds: EList<EGenericType> = createMetamodelEList<EGenericType>(this);
-  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+  private eBounds: EList<EGenericType> = createMetamodelContainmentEList<EGenericType>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
+    (annotation as any).setEModelElement(owner)
+  );
 
   getName(): string | null {
     return this.name;

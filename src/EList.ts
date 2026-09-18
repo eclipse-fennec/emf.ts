@@ -1374,6 +1374,33 @@ export function createMetamodelEList<T>(
 }
 
 /**
+ * Creates a containment list for a metamodel feature.
+ *
+ * Like createMetamodelEList(), but it sets `eContainer` on every element, as
+ * Java EMF does for every containment reference. Without it the tree is
+ * truncated at that point: `eResource()`, `getRootContainer()` and above all
+ * `getURIFragment()` stop there, so the element cannot be addressed at all
+ * (#98, the same gap #80 closed for classifiers).
+ *
+ * `inverseSetter` keeps a typed back-reference in step where Ecore has one -
+ * `eContainingClass`, `eEnum`, `eOperation`, `eModelElement`. Features without
+ * one, such as eTypeParameters, pass nothing.
+ */
+export function createMetamodelContainmentEList<T extends EObject = EObject>(
+  owner: EObject,
+  featureResolver?: () => EReference | null,
+  inverseSetter?: InverseSetter<T>
+): EList<T> {
+  return createIndexedProxy(
+    new EObjectContainmentWithInverseEListLazy<T>(
+      owner,
+      featureResolver ?? (() => null),
+      inverseSetter ?? (() => {})
+    )
+  );
+}
+
+/**
  * Wraps an EList with a Proxy to enable array-like index access (list[0], list[1], etc.)
  *
  * Every EList now installs this Proxy in its own constructor, so this function
