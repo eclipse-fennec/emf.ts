@@ -10,6 +10,10 @@ import { BasicResource } from '../runtime/BasicResource.js';
 import { URI } from '../URI.js';
 import { EObject } from '../EObject.js';
 import { XMLLoad, XMILoad } from './XMLLoad.js';
+import { MissingPackage } from './XMLHandler.js';
+import { EPackage } from '../EPackage.js';
+import { ResourceSet } from '../ResourceSet.js';
+import { isEPackage } from '../util/TypeGuards.js';
 import { XMLSave, XMISave } from './XMLSave.js';
 import { XMLHelperImpl } from './XMLHelper.js';
 
@@ -31,6 +35,7 @@ export class XMLResource extends BasicResource {
   protected idToEObjectMap: Map<string, EObject> = new Map();
   protected eObjectToIDMap: Map<EObject, string> = new Map();
   protected xmlHelper: XMLHelperImpl;
+  protected missingPackages: MissingPackage[] = [];
 
   constructor(uri?: URI) {
     super(uri);
@@ -106,7 +111,7 @@ export class XMLResource extends BasicResource {
       try {
         const stream = await converter.createInputStream(uri);
         const content = await streamToString(stream);
-        this.loadFromString(content, options);
+        await this.loadFromStringAsync(content, options);
       } catch (err) {
         // If createInputStream fails (e.g. not implemented), just mark as loaded
         (this as any).loaded = true;
@@ -123,8 +128,111 @@ export class XMLResource extends BasicResource {
     this.clearIdMaps();
     const opts = options || new Map();
     const loader = this.createXMLLoad();
-    loader.load(this, xmlString, opts);
+    this.missingPackages = loader.load(this, xmlString, opts);
     (this as any).loaded = true;
+  }
+
+  /**
+   * Load from XML string, fetching packages the document needs and the
+   * registry does not have (#88).
+   *
+   * Java EMF loads them while parsing, inside getPackageForURI(), which
+   * blocking IO allows. Here the URI converter is asynchronous, so the parse
+   * records what it could not resolve, those packages are loaded through the
+   * resource set, and the document is parsed once more. Without a resource
+   * set, or where nothing could be loaded, this behaves like loadFromString().
+   */
+  async loadFromStringAsync(xmlString: string, options?: Map<string, any>): Promise<void> {
+    this.loadFromString(xmlString, options);
+
+    if (this.missingPackages.length === 0) {
+      return;
+    }
+
+    if (await this.resolveMissingPackages()) {
+      this.unload();
+      this.loadFromString(xmlString, options);
+    }
+  }
+
+  /**
+   * The namespace URIs the last parse could not resolve.
+   */
+  getMissingPackages(): MissingPackage[] {
+    return [...this.missingPackages];
+  }
+
+  /**
+   * Load the packages the last parse was missing and register them.
+   * Returns whether anything was gained, i.e. whether parsing again is worth it.
+   */
+  protected async resolveMissingPackages(): Promise<boolean> {
+    const resourceSet = this.getResourceSet();
+    if (!resourceSet) {
+      return false;
+    }
+
+    const registry = resourceSet.getPackageRegistry();
+    let resolvedAny = false;
+
+    for (const missing of this.missingPackages) {
+      if (registry.getEPackage(missing.nsURI)) {
+        // Someone else registered it in the meantime.
+        resolvedAny = true;
+        continue;
+      }
+
+      const ePackage = await this.loadPackage(resourceSet, missing);
+      if (ePackage) {
+        registry.set(ePackage.getNsURI() || missing.nsURI, ePackage);
+        resolvedAny = true;
+      }
+    }
+
+    return resolvedAny;
+  }
+
+  /**
+   * Fetch one package through the resource set, from where xsi:schemaLocation
+   * says it is or from the namespace URI itself - which is what Java EMF
+   * treats a nsURI as: an ordinary resource URI the URI converter can answer.
+   */
+  protected async loadPackage(
+    resourceSet: ResourceSet,
+    missing: MissingPackage
+  ): Promise<EPackage | null> {
+    const uri = URI.createURI(missing.location);
+    const fragment = uri.fragment();
+    const trimmed = fragment ? uri.trimFragment() : uri;
+
+    const wasKnown = resourceSet.getResource(trimmed, false) !== null;
+    let resource;
+    try {
+      resource =
+        typeof (resourceSet as any).getResourceAsync === 'function'
+          ? await (resourceSet as any).getResourceAsync(trimmed, true)
+          : resourceSet.getResource(trimmed, true);
+    } catch {
+      // A URI converter that cannot answer this URI is the normal case for a
+      // namespace URI that is not a location at all.
+      return null;
+    }
+
+    if (!resource) {
+      return null;
+    }
+
+    const content = fragment ? resource.getEObject(fragment) : firstPackageOf(resource.getContents());
+    if (isEPackage(content)) {
+      return content;
+    }
+
+    if (!wasKnown) {
+      // Nothing came of it - leave no empty resource behind, or every later
+      // attempt would find that instead of loading again.
+      resourceSet.getResources().remove(resource);
+    }
+    return null;
   }
 
   /**
@@ -186,6 +294,16 @@ export class XMIResource extends XMLResource {
 /**
  * Convert a ReadableStream to a string
  */
+/** The first EPackage among a resource's roots. */
+function firstPackageOf(contents: Iterable<EObject>): EPackage | null {
+  for (const content of contents) {
+    if (isEPackage(content)) {
+      return content;
+    }
+  }
+  return null;
+}
+
 async function streamToString(stream: ReadableStream): Promise<string> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();

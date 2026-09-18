@@ -9,7 +9,7 @@
 import sax from 'sax';
 import { Resource } from '../Resource.js';
 import { XMLHelper, XMLHelperImpl } from './XMLHelper.js';
-import { XMLHandler, AttributesImpl, XML_NS } from './XMLHandler.js';
+import { XMLHandler, AttributesImpl, XML_NS, MissingPackage } from './XMLHandler.js';
 
 /**
  * XMLLoad - sets up SAX parser and invokes handler
@@ -22,9 +22,12 @@ export class XMLLoad {
   }
 
   /**
-   * Load resource from string
+   * Load resource from string.
+   *
+   * Returns the namespace URIs the parse could not resolve, so a caller with
+   * an asynchronous loading path can fetch them and try again (#88).
    */
-  load(resource: Resource, xmlString: string, options?: Map<string, any>): void {
+  load(resource: Resource, xmlString: string, options?: Map<string, any>): MissingPackage[] {
     const opts = options || new Map();
     const handler = this.makeDefaultHandler(resource, opts);
 
@@ -118,6 +121,8 @@ export class XMLLoad {
         }
       }
     }
+
+    return handler.getMissingPackages();
   }
 
   /**
