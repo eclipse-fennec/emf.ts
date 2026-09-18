@@ -238,10 +238,14 @@ describe('Resource', () => {
   describe('URI Fragments', () => {
     /**
      * @description XPath-Style Fragmente generieren
+     *
+     * Das Format ist das von EMF definierte: Wurzelindex, dann je
+     * Containment-Schritt `@<feature>.<index>`. Ein reiner Zahlenpfad wie
+     * `/0/0` ist fuer Java EMF nicht aufloesbar (#89).
      * @example
      * ```typescript
      * resource.getURIFragment(rootObj);   // '/0'
-     * resource.getURIFragment(childObj);  // '/0/0'
+     * resource.getURIFragment(childObj);  // '/0/@authors.0'
      * ```
      */
     it('should generate XPath-style fragments', () => {
@@ -257,8 +261,8 @@ describe('Resource', () => {
       authors.push(author2);
 
       expect(resource.getURIFragment(book)).toBe('/0');
-      expect(resource.getURIFragment(author1)).toBe('/0/0');
-      expect(resource.getURIFragment(author2)).toBe('/0/1');
+      expect(resource.getURIFragment(author1)).toBe('/0/@authors.0');
+      expect(resource.getURIFragment(author2)).toBe('/0/@authors.1');
     });
 
     /**
