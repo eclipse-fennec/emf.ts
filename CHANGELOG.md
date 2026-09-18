@@ -53,6 +53,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Java is stricter here — its `eIsSet()` degrades to the same value comparison for a non-unsettable feature, so it drops such an attribute as well. Keeping it means a load/save cycle no longer deletes what the author wrote, and the file stays readable by Java EMF.
 - A namespace URI resolves through the resource set ([#88](https://github.com/eclipse-fennec/emf.ts/issues/88)). `getFactoryForPrefix()` consulted the package registry and gave up otherwise, with an error naming only the prefix. The new `getPackageForURI()` walks registry, the `xsi:schemaLocation` entry — a map that was written in three places and read in none — and the URI as a resource URI of the resource set, registers whatever it finds, and ends at an overridable `handleMissingPackage()`. The error names the nsURI now.
+- `eContainer()` is set for operations, parameters, enum literals, type parameters, generic super types, annotation contents and the `eAnnotations` of every class ([#98](https://github.com/eclipse-fennec/emf.ts/issues/98)). These lists used `createMetamodelEList()`, which knows nothing about containment, so the tree was truncated at them: an operation had no URI fragment at all — `getURIFragment()` stopped at the first step and returned the bare root — and nothing could reference it across documents. The same gap [#80](https://github.com/eclipse-fennec/emf.ts/issues/80) closed for classifiers, at six more places.
+
+  ```
+  before:  EClass.eOperations   eContainer=null   fragment=/
+  after:   EClass.eOperations   eContainer=ok     fragment=//C/op
+           EOperation.eParameters                 fragment=//C/op/p
+           EEnum.eLiterals                        fragment=//E/L
+           EClass.eAnnotations                    fragment=//C/http%3A%2F%2Fcls
+  ```
+
+  The new `createMetamodelContainmentEList()` keeps the typed back-reference in step where Ecore has one — `eContainingClass`, `eOperation`, `eEnum`, `eModelElement` — and detaches an element from a previous container, as every containment list does. `eSuperTypes`, `eExceptions` and `EAnnotation.references` are deliberately untouched: they are not containments.
 - `getURIFragment()` addresses metamodel elements by name. Ecore does not use `@feature.index` for its own elements: `EModelElementImpl.eURIFragmentSegment()` returns the name of an `ENamedElement` and the source of an `EAnnotation`, appending `.n` where an earlier sibling carries the same key. `#//ServiceRegistration/reference` is what `.ecore` files contain, and what this now produces instead of `#//@eClassifiers.3/@eStructuralFeatures.1`.
 - The root segment of a fragment is empty where the resource holds a single root, as `ResourceImpl.getURIFragmentRootSegment()` defines. EMF's own files carry `href="payment.xmi#/"` and `exceptions="//@exceptions.0"`; the output was `/0` and `/0/@exceptions.0`. Three test expectations pinned the old form and were updated. Both forms are still read.
 

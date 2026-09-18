@@ -14,7 +14,8 @@ import { EAnnotation } from '../EAnnotation.js';
 import { EStructuralFeature } from '../EStructuralFeature.js';
 import { ETypeParameter } from '../ETypeParameter.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
+import { EList, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EDataType implementation
@@ -25,8 +26,10 @@ export class BasicEDataType extends BasicEObject implements EDataType {
   private instanceClass: Function | null = null;
   private ePackage: EPackage | null = null;
   private serializable: boolean = true;
-  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
-  private eTypeParameters: EList<ETypeParameter> = createMetamodelEList<ETypeParameter>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
+    (annotation as any).setEModelElement(owner)
+  );
+  private eTypeParameters: EList<ETypeParameter> = createMetamodelContainmentEList<ETypeParameter>(this);
 
   getName(): string | null {
     return this.name;

@@ -13,7 +13,8 @@ import { EClass } from '../EClass.js';
 import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEObject } from './BasicEObject.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
+import { EList, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EEnumLiteral implementation
@@ -24,7 +25,9 @@ export class BasicEEnumLiteral extends BasicEObject implements EEnumLiteral {
   private instance: any = null;
   private literal: string | null = null;
   private eEnum: EEnum | null = null;
-  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
+    (annotation as any).setEModelElement(owner)
+  );
 
   getName(): string | null {
     return this._name;

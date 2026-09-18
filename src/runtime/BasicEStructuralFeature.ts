@@ -16,7 +16,8 @@ import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { EPackageRegistry } from '../EPackage.js';
 import { isInternalEObject } from '../InternalEObject.js';
 import { resolveClassifierInPackage } from './resolveClassifierInPackage.js';
-import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
+import { EList, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Abstract base class for EAttribute and EReference
@@ -35,7 +36,9 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
   private lowerBound: number = 0;
   private upperBound: number = 1;
   private featureID: number = -1;
-  protected eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+  protected eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
+    (annotation as any).setEModelElement(owner)
+  );
 
   getName(): string | null {
     return this.name;

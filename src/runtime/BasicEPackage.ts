@@ -22,6 +22,7 @@ import {
   EObjectContainmentWithInverseEListLazy,
   createIndexedProxy,
   createMetamodelEList,
+  createMetamodelContainmentEList,
   replaceListContents,
 } from '../EList.js';
 
@@ -192,7 +193,9 @@ export class BasicEPackage extends BasicEObject implements EPackage {
   }
 
   // EObject methods
-  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
+    (annotation as any).setEModelElement(owner)
+  );
 
   getEAnnotations(): EList<EAnnotation> {
     return this.eAnnotations;

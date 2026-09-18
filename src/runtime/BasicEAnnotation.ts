@@ -15,7 +15,8 @@ import { EStructuralFeature } from '../EStructuralFeature.js';
 import { BasicEObject } from './BasicEObject.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { EMap, createEMap } from '../EMap.js';
-import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
+import { EList, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EAnnotation implementation
@@ -24,7 +25,7 @@ export class BasicEAnnotation extends BasicEObject implements EAnnotation {
   private source: string | null = null;
   private _detailsMap: EMap<string, string> | null = null;
   private eModelElement: EModelElement | null = null;
-  private contents: EList<EObject> = createMetamodelEList<EObject>(this);
+  private contents: EList<EObject> = createMetamodelContainmentEList<EObject>(this);
   private references: EList<EObject> = createMetamodelEList<EObject>(this);
 
   private getOrCreateDetailsMap(): EMap<string, string> {
@@ -66,7 +67,9 @@ export class BasicEAnnotation extends BasicEObject implements EAnnotation {
   }
 
   // EModelElement methods
-  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
+    (annotation as any).setEModelElement(owner)
+  );
 
   getEAnnotations(): EList<EAnnotation> {
     return this.eAnnotations;

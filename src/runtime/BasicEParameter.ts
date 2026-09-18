@@ -15,7 +15,8 @@ import { EGenericType } from '../EGenericType.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
-import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
+import { EList, createMetamodelEList,
+  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EParameter implementation.
@@ -27,7 +28,9 @@ export class BasicEParameter extends BasicEObject implements EParameter {
   private name: string | null = null;
   private eType: EClassifier | null = null;
   private eOperation: EOperation | null = null;
-  private eAnnotations: EList<EAnnotation> = createMetamodelEList<EAnnotation>(this);
+  private eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
+    (annotation as any).setEModelElement(owner)
+  );
   private eGenericType: EGenericType | null = null;
   private ordered: boolean = true;
   private unique: boolean = true;

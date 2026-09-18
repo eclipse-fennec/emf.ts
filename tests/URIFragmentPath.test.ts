@@ -217,9 +217,17 @@ describe('Metamodel elements are addressed by name', () => {
       (pkg: any) => pkg.getEClassifier('Ziel').getEStructuralFeature('wert'),
       '//Ziel/wert',
     ],
-    // EOperation and EAnnotation are missing from this list on purpose: their
-    // lists do not set eContainer, so they have no fragment at all yet - the
-    // gap #80 closed for eClassifiers, still open for these.
+    [
+      'an operation',
+      (pkg: any) => pkg.getEClassifier('Ziel').getEOperations().get(0),
+      '//Ziel/tu',
+    ],
+    [
+      // The source, encoded as BasicEObjectImpl.eEncodeValue() does (#98).
+      'an annotation, by its source',
+      (pkg: any) => pkg.getEClassifier('Ziel').getEAnnotations().get(0),
+      '//Ziel/http%3A%2F%2Fexample.org%2Fdoc',
+    ],
   ])('should address %s by name', (_label, pick, expected) => {
     const { resource, pkg } = metamodel();
 
