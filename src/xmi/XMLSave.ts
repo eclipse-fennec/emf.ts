@@ -503,10 +503,19 @@ export class XMLSave {
         if (resource === this.resource) {
           return fragment;
         }
-        // Different resource: use full URI
+        // Different resource: deresolve against this document, so the file
+        // stays portable. Writing the absolute URI would bake the author's
+        // filesystem path into it; Java EMF deresolves here too, and the proxy
+        // branch above already does (#93).
         const uri = resource.getURI();
         if (uri) {
-          return `${uri.toString()}#${fragment}`;
+          const full = URI.createURI(`${uri.toString()}#${fragment}`);
+          const base = this.resource?.getURI();
+          // Deresolved against this document, so the file stays portable -
+          // writing the absolute URI would bake the author's path into it.
+          // helper.deresolve() is not used here: it skips anything isRelative()
+          // reports, which includes an absolute path carrying no scheme.
+          return base ? full.deresolve(base).toString() : full.toString();
         }
         return `#${fragment}`;
       }

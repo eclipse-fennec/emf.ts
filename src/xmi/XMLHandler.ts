@@ -1080,6 +1080,22 @@ export class XMLHandler {
    * - Typed references: ecore:EClass audiogram.ecore#//HIMSAAudiometricStandardType
    * - Local IDs: someId
    */
+  /**
+   * Turns the base part of a reference into an absolute URI.
+   *
+   * A reference may name its target relative to the document it appears in
+   * (`payment.xmi#/`), which only means something together with that document's
+   * own URI.
+   */
+  protected resolveAgainstResource(baseURI: string): URI {
+    const uri = URI.createURI(baseURI);
+    const resourceURI = this.resource.getURI();
+    if (!resourceURI || baseURI.includes('://')) {
+      return uri;
+    }
+    return uri.resolve(resourceURI);
+  }
+
   protected resolveReference(ref: string): EObject | null {
     // Handle EMF typed reference format: "prefix:TypeName URI#fragment"
     // Example: "ecore:EClass audiogram.ecore#//HIMSAAudiometricStandardType"
@@ -1130,7 +1146,13 @@ export class XMLHandler {
       // FALLBACK: Try to resolve via ResourceSet (for file-based resources)
       const resourceSet = this.resource.getResourceSet();
       if (resourceSet) {
-        const uri = URI.createURI(baseURI);
+        // A relative base has to be resolved against the referencing document
+        // first. Passing it through unchanged misses the resource the set holds
+        // under its absolute URI, and with loadOnDemand an empty one is created
+        // under the relative name instead - the reference then resolves to
+        // nothing or, worse, to something in this document (#93).
+        // createProxy() below does the same step for the proxy URI.
+        const uri = this.resolveAgainstResource(baseURI);
         const externalResource = resourceSet.getResource(uri, true);
         if (externalResource) {
           return externalResource.getEObject(fragment);
