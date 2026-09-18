@@ -22,6 +22,7 @@ import {
   EObjectContainmentWithInverseEListLazy,
   createIndexedProxy,
   createMetamodelEList,
+  replaceListContents,
 } from '../EList.js';
 
 /**
