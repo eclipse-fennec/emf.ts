@@ -329,11 +329,16 @@ export class XMLSave {
         if (target === null || typeof target !== 'object' || !('eClass' in target)) {
           continue;
         }
-        // A proxy has no EClass until it is resolved, and asking throws.
-        if (isInternalEObject(target) && target.eIsProxy()) {
+        // A proxy carries the type it was loaded with, which is exactly the one
+        // that has to be declared - skipping proxies left xsi:type written with
+        // an undeclared prefix, and the type was then lost on the next load.
+        // Asking a proxy without a type throws, hence the guard.
+        let actualType: EClass | null = null;
+        try {
+          actualType = (target as EObject).eClass() ?? null;
+        } catch {
           continue;
         }
-        const actualType = (target as EObject).eClass();
         if (!actualType || actualType === feature.getEType()) {
           continue;
         }
@@ -705,28 +710,45 @@ export class XMLSave {
    * is where EMF puts that information - the reader would otherwise instantiate
    * the declared type.
    */
-  protected writeHrefElement(ref: EReference, target: EObject | string): void {
+  protected writeHrefElement(ref: EReference, target: EObject | string, original?: unknown): void {
     const href = typeof target === 'string' ? target : this.getHref(target);
     if (!href) {
       return;
     }
 
     const name = this.helper.getSerializedFeatureName(ref);
+    const actualType = this.actualTypeOf(target, original);
     let typeAttribute = '';
-    if (typeof target !== 'string') {
-      const declaredType = ref.getEType();
-      const actualType = target.eClass();
-      if (declaredType && actualType && actualType !== declaredType) {
-        const prefix = this.getPrefix(actualType.getEPackage()!);
-        const typeName = actualType.getName();
-        if (prefix && typeName) {
-          typeAttribute = ` xsi:type="${prefix}:${typeName}"`;
-        }
+    if (actualType && actualType !== ref.getEType()) {
+      const prefix = this.getPrefix(actualType.getEPackage()!);
+      const typeName = actualType.getName();
+      if (prefix && typeName) {
+        typeAttribute = ` xsi:type="${prefix}:${typeName}"`;
       }
     }
 
     this.writeIndent();
     this.output.push(`<${name}${typeAttribute} href="${this.escapeXml(href)}"/>\n`);
+  }
+
+  /**
+   * The type to write as xsi:type, or null when there is nothing to record.
+   *
+   * An unresolvable proxy comes out of resolveValue() as a plain URI string, so
+   * the type has to be read from the original value - the proxy carries the
+   * type it was loaded with, which would otherwise be lost on every round trip.
+   */
+  protected actualTypeOf(target: EObject | string, original?: unknown): EClass | null {
+    const candidate = typeof target === 'string' ? original : target;
+    if (!candidate || typeof candidate !== 'object' || !('eClass' in candidate)) {
+      return null;
+    }
+    try {
+      return (candidate as EObject).eClass() ?? null;
+    } catch {
+      // A proxy without a type throws rather than answering.
+      return null;
+    }
   }
 
   protected isAttribute(feature: EStructuralFeature): boolean {
@@ -875,14 +897,14 @@ export class XMLSave {
             if (resolved === null || resolved === undefined) continue;
             // Skip same-document refs (already written as attribute)
             if (!this.isCrossDocument(resolved)) continue;
-            this.writeHrefElement(ref, resolved as EObject | string);
+            this.writeHrefElement(ref, resolved as EObject | string, refObj);
           }
         } else if (!feature.isMany()) {
           // Single-valued non-containment: cross-document targets go here too,
           // same-document ones stay in the attribute (#85).
           const resolved = this.resolveValue(value, obj);
           if (resolved !== null && resolved !== undefined && this.isCrossDocument(resolved)) {
-            this.writeHrefElement(ref, resolved as EObject | string);
+            this.writeHrefElement(ref, resolved as EObject | string, value);
           }
         }
       }
