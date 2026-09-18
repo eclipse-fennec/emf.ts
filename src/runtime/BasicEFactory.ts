@@ -14,7 +14,7 @@ import { EDataType } from '../EDataType.js';
 import { DynamicEObject } from './BasicEObject.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { dataTypeRegistry } from './DataTypeRegistry.js';
-import { EList, createMetamodelEList } from '../EList.js';
+import { EList, createMetamodelEList, replaceListContents } from '../EList.js';
 import { EAnnotation } from '../EAnnotation.js';
 
 /**
@@ -94,8 +94,8 @@ export class BasicEFactory implements EFactory {
     return this.eAnnotations;
   }
 
-  getEAnnotation(source: string): any {
-    return null;
+  getEAnnotation(source: string): EAnnotation | null {
+    return this.eAnnotations.find(a => a.getSource() === source) || null;
   }
 
   // EObject methods
@@ -135,13 +135,28 @@ export class BasicEFactory implements EFactory {
     return [];
   }
 
+  /**
+   * Minimal reflective access: only eAnnotations is backed by state here, and
+   * it has to be the same list the typed getter returns - otherwise the two
+   * sides drift apart (#86).
+   */
   eGet(feature: any): any {
+    if (feature?.getName?.() === 'eAnnotations') {
+      return this.eAnnotations;
+    }
     return null;
   }
 
-  eSet(feature: any, newValue: any): void {}
+  eSet(feature: any, newValue: any): void {
+    if (feature?.getName?.() === 'eAnnotations') {
+      replaceListContents(this.eAnnotations, newValue);
+    }
+  }
 
   eIsSet(feature: any): boolean {
+    if (feature?.getName?.() === 'eAnnotations') {
+      return !this.eAnnotations.isEmpty();
+    }
     return false;
   }
 
