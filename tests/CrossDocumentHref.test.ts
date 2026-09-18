@@ -167,3 +167,74 @@ describe('Namespaces for types used in references (#87)', () => {
     expect(back.getContents().size()).toBe(1);
   });
 });
+
+describe('The type of an unresolvable target survives (#85, #87)', () => {
+  // A reference to a package that is not loaded stays a proxy. xsi:type on the
+  // element is then the only record of the actual type, so it has to be read on
+  // load and written back - otherwise the type degrades to the feature's
+  // declared type on the first round trip and is gone.
+  const NS = 'http://test.crossdoc/unresolved';
+  const MODEL = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore"
+    name="u" nsURI="${NS}" nsPrefix="u">
+  <eClassifiers xsi:type="ecore:EClass" name="Slot">
+    <eStructuralFeatures xsi:type="ecore:EReference" name="type"
+        eType="ecore:EClass http://www.eclipse.org/emf/2002/Ecore#//EClassifier"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+  /** A document whose reference points into a package nobody registered. */
+  const INSTANCE = `<?xml version="1.0" encoding="UTF-8"?>
+<u:Slot xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore"
+    xmlns:u="${NS}">
+  <type xsi:type="ecore:EClass" href="http://absent.example/model#//Thing"/>
+</u:Slot>`;
+
+  function load() {
+    const resourceSet = new EResourceSetImpl();
+    const metaResource = resourceSet.createResource(URI.createURI('unresolved.ecore'));
+    (metaResource as any).loadFromString(MODEL);
+    const pkg = metaResource.getContents().get(0) as EPackage;
+    EPackageRegistry.INSTANCE.set(NS, pkg);
+    resourceSet.getPackageRegistry().set(NS, pkg);
+
+    const resource = resourceSet.createResource(URI.createURI('unresolved.xmi'));
+    (resource as any).loadFromString(INSTANCE);
+    return { resourceSet, pkg, resource };
+  }
+
+  it('should give the proxy the type from xsi:type, not the declared one', () => {
+    const { pkg, resource } = load();
+    const slot = resource.getContents().get(0);
+    const target: any = slot.eGet((pkg.getEClassifier('Slot') as EClass).getEStructuralFeature('type')!);
+
+    expect(target.eIsProxy()).toBe(true);
+    expect(target.eClass().getName()).toBe('EClass');
+  });
+
+  it('should write xsi:type back out', () => {
+    const { resource } = load();
+
+    const xmi = (resource as any).saveToString();
+
+    expect(xmi).toMatch(/<type[^>]*xsi:type="ecore:EClass"/);
+    expect(xmi).toContain('xmlns:ecore=');
+  });
+
+  it('should stay stable across repeated round trips', () => {
+    // The prefix has to be declared for this: without it the next load cannot
+    // resolve ecore:EClass and silently falls back to the declared type.
+    const { resourceSet, resource } = load();
+    const first = (resource as any).saveToString();
+
+    const second = resourceSet.createResource(URI.createURI('unresolved-2.xmi'));
+    (second as any).loadFromString(first);
+    const secondOutput = (second as any).saveToString();
+
+    expect(secondOutput).toBe(first);
+  });
+});

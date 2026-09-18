@@ -109,6 +109,12 @@ interface SingleReference {
   position: number;
   lineNumber: number;
   columnNumber: number;
+  /**
+   * The xsi:type given on the reference element, if any. Needed when the
+   * reference cannot be resolved: the proxy would otherwise carry the feature's
+   * declared type, and the actual one is gone for good.
+   */
+  typeName?: string;
 }
 
 /**
@@ -443,6 +449,25 @@ export class XMLHandler {
   /**
    * Create object based on xsi:type
    */
+  /**
+   * Resolves a `prefix:LocalName` type name to its EClass, without creating an
+   * instance. Returns null when the prefix or the type is unknown, in which case
+   * the caller falls back to whatever it declared.
+   */
+  protected resolveTypeName(typeName: string): EClass | null {
+    const colonIndex = typeName.indexOf(':');
+    const typePrefix = colonIndex === -1 ? '' : typeName.substring(0, colonIndex);
+    const localType = colonIndex === -1 ? typeName : typeName.substring(colonIndex + 1);
+
+    const eFactory = this.getFactoryForPrefix(typePrefix);
+    if (!eFactory) {
+      return null;
+    }
+
+    const type = this.helper.getType(eFactory, localType);
+    return type && 'getESuperTypes' in type ? (type as EClass) : null;
+  }
+
   protected createObjectByType(prefix: string, typeName: string, isTopObject: boolean): EObject | null {
     // Parse type name (prefix:localName)
     let typePrefix = prefix;
@@ -620,8 +645,11 @@ export class XMLHandler {
     // Check for href attribute - indicates a reference, not containment
     const href = this.attribs?.getValueByQName(HREF_ATTRIB) || this.attribs?.getValueByName('', HREF_ATTRIB);
     if (href) {
-      // This is a reference element with href - handle as reference
-      this.setValueFromId(parent, feature as EReference, href, -1);
+      // This is a reference element with href - handle as reference.
+      // Read xsi:type before returning: for a target that stays unresolved it is
+      // the only record of the actual type, and a proxy typed with the feature's
+      // declared type loses it for good.
+      this.setValueFromId(parent, feature as EReference, href, -1, this.getXSIType() ?? undefined);
       // Push reference type to track this element (no object created)
       this.objects.push(null);
       this.types.push(REFERENCE_TYPE);
@@ -929,7 +957,13 @@ export class XMLHandler {
   /**
    * Set reference value from ID
    */
-  protected setValueFromId(eObject: EObject, feature: EReference, idValue: string, position: number = -1): void {
+  protected setValueFromId(
+    eObject: EObject,
+    feature: EReference,
+    idValue: string,
+    position: number = -1,
+    typeName?: string
+  ): void {
     // Handle as forward reference
     this.forwardSingleReferences.push({
       object: eObject,
@@ -937,7 +971,8 @@ export class XMLHandler {
       value: idValue,
       position,
       lineNumber: this.lineNumber,
-      columnNumber: this.columnNumber
+      columnNumber: this.columnNumber,
+      typeName
     });
   }
 
@@ -952,7 +987,7 @@ export class XMLHandler {
       } else {
         console.warn(`[XMLHandler] Forward ref UNRESOLVED: '${ref.value}' on feature '${ref.feature?.getName?.()}'`);
         // Create a proxy for unresolved reference
-        const proxy = this.createProxy(ref.feature as EReference, ref.value);
+        const proxy = this.createProxy(ref.feature as EReference, ref.value, ref.typeName);
         if (proxy) {
           this.helper.setValue(ref.object, ref.feature, proxy, ref.position);
         } else {
@@ -967,7 +1002,7 @@ export class XMLHandler {
    * Creates a proxy for an unresolved reference.
    * The proxy will be resolved when accessed.
    */
-  protected createProxy(feature: EReference, uriValue: string): EObject | null {
+  protected createProxy(feature: EReference, uriValue: string, typeName?: string): EObject | null {
     // Determine the proxy URI
     let proxyURI: URI;
     const resourceURI = this.resource.getURI();
@@ -1022,9 +1057,13 @@ export class XMLHandler {
       }
     }
 
-    // Get the expected type from the reference
-    const eType = feature.getEType();
-    const eClass = eType && 'getESuperTypes' in eType ? eType as EClass : null;
+    // An xsi:type on the reference element names the actual type and takes
+    // precedence; the feature's declared type is only the fallback.
+    let eClass = typeName ? this.resolveTypeName(typeName) : null;
+    if (!eClass) {
+      const eType = feature.getEType();
+      eClass = eType && 'getESuperTypes' in eType ? eType as EClass : null;
+    }
 
     // Create the proxy
     const proxy = new EProxyImpl(proxyURI, eClass || undefined);
