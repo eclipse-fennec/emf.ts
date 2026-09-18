@@ -177,3 +177,89 @@ describe('Path fragments name the containment feature (#89)', () => {
     });
   });
 });
+
+/**
+ * Ecore addresses its own elements by name, not by feature and index:
+ * EModelElementImpl.eURIFragmentSegment() returns the name of an ENamedElement
+ * and the source of an EAnnotation. And a resource holding a single root
+ * leaves the root segment empty, which is why EMF's own files carry
+ * `href="other.xmi#/"` and `exceptions="//@exceptions.0"`.
+ */
+describe('Metamodel elements are addressed by name', () => {
+  const NS = 'http://test.fragment/named';
+
+  const ECORE = `<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmlns:xmi="http://www.omg.org/XMI" xmi:version="2.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore"
+    name="named" nsURI="${NS}" nsPrefix="n">
+  <eClassifiers xsi:type="ecore:EClass" name="Erste"/>
+  <eClassifiers xsi:type="ecore:EClass" name="Ziel">
+    <eAnnotations source="http://example.org/doc"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="wert"
+        eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+    <eOperations name="tu"/>
+  </eClassifiers>
+</ecore:EPackage>`;
+
+  function metamodel() {
+    const resourceSet = new EResourceSetImpl();
+    const resource = resourceSet.createResource(URI.createURI('named.ecore'));
+    (resource as any).loadFromString(ECORE);
+    const pkg = resource.getContents().get(0) as any;
+    return { resource, pkg };
+  }
+
+  it.each([
+    ['a classifier', (pkg: any) => pkg.getEClassifier('Ziel'), '//Ziel'],
+    [
+      'a structural feature',
+      (pkg: any) => pkg.getEClassifier('Ziel').getEStructuralFeature('wert'),
+      '//Ziel/wert',
+    ],
+    // EOperation and EAnnotation are missing from this list on purpose: their
+    // lists do not set eContainer, so they have no fragment at all yet - the
+    // gap #80 closed for eClassifiers, still open for these.
+  ])('should address %s by name', (_label, pick, expected) => {
+    const { resource, pkg } = metamodel();
+
+    expect(resource.getURIFragment(pick(pkg))).toBe(expected);
+  });
+
+  it('should resolve a named fragment back to the same object', () => {
+    const { resource, pkg } = metamodel();
+    const feature = pkg.getEClassifier('Ziel').getEStructuralFeature('wert');
+
+    expect(resource.getEObject(resource.getURIFragment(feature))).toBe(feature);
+  });
+
+  it('should leave the root segment empty for a single root', () => {
+    const { resource, pkg } = metamodel();
+
+    expect(resource.getURIFragment(pkg)).toBe('/');
+  });
+
+  it('should number the root where the resource holds several', () => {
+    const { resource, pkg } = metamodel();
+    const second = resource.getResourceSet()!.createResource(URI.createURI('second.ecore'));
+    (second as any).loadFromString(ECORE.replace(NS, `${NS}/2`));
+    resource.getContents().add(second.getContents().get(0));
+
+    expect(resource.getURIFragment(pkg)).toBe('/0');
+    expect(resource.getURIFragment(resource.getContents().get(1))).toBe('/1');
+  });
+
+  it('should keep the feature form for instance models', () => {
+    // Only metamodel elements are addressed by name; an ordinary EObject is
+    // still @feature.index, which is what BasicEObjectImpl does in Java.
+    const { pkg } = metamodel();
+    const resourceSet = new EResourceSetImpl();
+    EPackageRegistry.INSTANCE.set(NS, pkg);
+    resourceSet.getPackageRegistry().set(NS, pkg);
+    const instance = resourceSet.createResource(URI.createURI('instance.xmi'));
+    const object = pkg.getEFactoryInstance().create(pkg.getEClassifier('Ziel'));
+    instance.getContents().add(object);
+
+    expect(instance.getURIFragment(object)).toBe('/');
+  });
+});
