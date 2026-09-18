@@ -292,6 +292,11 @@ export class XMLSave {
         packages.add(pkg);
       }
 
+      // A referenced object's type can end up in the document as an xsi:type on
+      // an href element, and that prefix needs declaring as well - counting
+      // only the types of contained objects left it undeclared (#87).
+      this.collectReferencedTypePackages(o, packages);
+
       // Check contained objects
       for (const content of o.eContents()) {
         collectFromObject(content);
@@ -300,6 +305,44 @@ export class XMLSave {
 
     collectFromObject(obj);
     return packages;
+  }
+
+  /**
+   * Adds the packages of non-containment reference targets whose actual type
+   * differs from the declared one, since those appear as xsi:type in the output.
+   */
+  protected collectReferencedTypePackages(obj: EObject, packages: Set<EPackage>): void {
+    const eClass = obj.eClass();
+
+    for (const feature of eClass.getEAllReferences()) {
+      if (feature.isContainment() || feature.isTransient()) {
+        continue;
+      }
+
+      const value = obj.eGet(feature);
+      if (value === null || value === undefined) {
+        continue;
+      }
+
+      const targets = Array.isArray(value) || isEList(value) ? value : [value];
+      for (const target of targets) {
+        if (target === null || typeof target !== 'object' || !('eClass' in target)) {
+          continue;
+        }
+        // A proxy has no EClass until it is resolved, and asking throws.
+        if (isInternalEObject(target) && target.eIsProxy()) {
+          continue;
+        }
+        const actualType = (target as EObject).eClass();
+        if (!actualType || actualType === feature.getEType()) {
+          continue;
+        }
+        const typePackage = actualType.getEPackage();
+        if (typePackage) {
+          packages.add(typePackage);
+        }
+      }
+    }
   }
 
   /**
@@ -376,6 +419,12 @@ export class XMLSave {
               // Single-valued reference - resolve proxy first
               value = this.resolveValue(value, obj);
 
+              // A target in another resource is written as an href child
+              // element by writeElements(), the same as a multi-valued one.
+              if (this.isCrossDocument(value)) {
+                continue;
+              }
+
               if (value !== null && value !== undefined) {
                 // If value is now a string (unresolved proxy URI), use it directly
                 if (typeof value === 'string') {
@@ -399,13 +448,13 @@ export class XMLSave {
               for (const refObj of value) {
                 const resolved = this.resolveValue(refObj, obj);
                 if (resolved === null || resolved === undefined) continue;
-                if (typeof resolved === 'string') continue; // cross-doc proxy, handled in writeElements
-                const refResource = (resolved as EObject).eResource?.();
-                if (refResource && refResource === this.resource) {
-                  const href = this.getHref(resolved as EObject);
-                  if (href) sameDocHrefs.push(href);
-                }
-                // cross-document refs are handled in writeElements
+                // Same criterion as writeElements(), so that every target lands
+                // in exactly one of the two - comparing resources here while
+                // writeElements() asks isCrossDocument() let targets reachable
+                // through the package chain fall between them and disappear.
+                if (this.isCrossDocument(resolved)) continue;
+                const href = this.getHref(resolved as EObject);
+                if (href) sameDocHrefs.push(href);
               }
               if (sameDocHrefs.length > 0) {
                 this.output.push(` ${serializedRefName}="${this.escapeXml(sameDocHrefs.join(' '))}"`);
@@ -612,6 +661,74 @@ export class XMLSave {
     return false;
   }
 
+  /**
+   * Whether the reference target lives outside this resource.
+   *
+   * EMF decides the serialized form by where the target is, not by the
+   * cardinality of the feature: a target in another resource becomes an href
+   * child element, one in this document an attribute (#85).
+   */
+  protected isCrossDocument(value: unknown): boolean {
+    if (typeof value === 'string') {
+      // An unresolved proxy URI is by definition not in this document.
+      return true;
+    }
+    if (value === null || typeof value !== 'object' || !('eClass' in (value as object))) {
+      return false;
+    }
+
+    const target = value as EObject;
+    if (isInternalEObject(target) && target.eIsProxy()) {
+      return true;
+    }
+
+    // Decide by the address rather than by eResource(): a classifier reachable
+    // through this document's package chain has no container of its own in many
+    // models, so comparing resources would misjudge it. getHref() already
+    // encodes the rule - a bare fragment (`#//X`) or path (`/0/...`) addresses
+    // this document, anything with a base URI in front of it another one.
+    const href = this.getHref(target);
+    if (!href) {
+      return false;
+    }
+
+    // Same-document addresses are a bare fragment (`#//X`), a path (`/0/...`)
+    // or a bare IDREF (`_addr1`). A cross-document one carries a base URI, so
+    // it either contains a scheme or a `#` with something in front of it.
+    return href.includes('://') || href.indexOf('#') > 0;
+  }
+
+  /**
+   * Writes `<feature href="..."/>` for a target in another resource.
+   *
+   * Carries xsi:type when the actual type differs from the declared one, which
+   * is where EMF puts that information - the reader would otherwise instantiate
+   * the declared type.
+   */
+  protected writeHrefElement(ref: EReference, target: EObject | string): void {
+    const href = typeof target === 'string' ? target : this.getHref(target);
+    if (!href) {
+      return;
+    }
+
+    const name = this.helper.getSerializedFeatureName(ref);
+    let typeAttribute = '';
+    if (typeof target !== 'string') {
+      const declaredType = ref.getEType();
+      const actualType = target.eClass();
+      if (declaredType && actualType && actualType !== declaredType) {
+        const prefix = this.getPrefix(actualType.getEPackage()!);
+        const typeName = actualType.getName();
+        if (prefix && typeName) {
+          typeAttribute = ` xsi:type="${prefix}:${typeName}"`;
+        }
+      }
+    }
+
+    this.writeIndent();
+    this.output.push(`<${name}${typeAttribute} href="${this.escapeXml(href)}"/>\n`);
+  }
+
   protected isAttribute(feature: EStructuralFeature): boolean {
     return !('isContainment' in feature);
   }
@@ -664,6 +781,9 @@ export class XMLSave {
               return true;
             }
           }
+        } else if (!feature.isMany() && this.isCrossDocument(this.resolveValue(value, obj))) {
+          // Single-valued cross-document reference, written as an href element
+          return true;
         }
       }
     }
@@ -753,14 +873,16 @@ export class XMLSave {
           for (const refObj of value) {
             const resolved = this.resolveValue(refObj, obj);
             if (resolved === null || resolved === undefined) continue;
-            const refResource = typeof resolved !== 'string' ? (resolved as EObject).eResource?.() : null;
             // Skip same-document refs (already written as attribute)
-            if (refResource && refResource === this.resource) continue;
-            const href = typeof resolved === 'string' ? resolved : this.getHref(resolved as EObject);
-            if (href) {
-              this.writeIndent();
-              this.output.push(`<${this.helper.getSerializedFeatureName(ref)} href="${this.escapeXml(href)}"/>\n`);
-            }
+            if (!this.isCrossDocument(resolved)) continue;
+            this.writeHrefElement(ref, resolved as EObject | string);
+          }
+        } else if (!feature.isMany()) {
+          // Single-valued non-containment: cross-document targets go here too,
+          // same-document ones stay in the attribute (#85).
+          const resolved = this.resolveValue(value, obj);
+          if (resolved !== null && resolved !== undefined && this.isCrossDocument(resolved)) {
+            this.writeHrefElement(ref, resolved as EObject | string);
           }
         }
       }
