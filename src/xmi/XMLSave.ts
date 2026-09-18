@@ -30,6 +30,13 @@ import {
 } from './ExtendedMetaData.js';
 
 /**
+ * Save option: write every feature that has a default value literal, even
+ * where the value equals that default. Mirrors
+ * XMLResource.OPTION_KEEP_DEFAULT_CONTENT.
+ */
+export const OPTION_KEEP_DEFAULT_CONTENT = 'KEEP_DEFAULT_CONTENT';
+
+/**
  * XMLSave - Serializes EObjects to XML/XMI format
  */
 export class XMLSave {
@@ -40,6 +47,7 @@ export class XMLSave {
   protected indent: number = 0;
   protected indentString: string = '  ';
   protected idAttributeName: string = 'id';
+  protected keepDefaults: boolean = false;
 
   constructor(helper?: XMLHelper) {
     this.helper = helper || new XMLHelperImpl();
@@ -61,6 +69,8 @@ export class XMLSave {
     this.output = [];
     this.declaredNamespaces.clear();
     this.indent = 0;
+
+    this.keepDefaults = options?.get(OPTION_KEEP_DEFAULT_CONTENT) === true;
 
     if (options) {
       this.helper.setOptions(options);
@@ -351,14 +361,7 @@ export class XMLSave {
               continue;
             }
 
-            // Get default value safely - may return null if type not properly set
-            let defaultValue: any = null;
-            try {
-              defaultValue = attr.getDefaultValue();
-            } catch {
-              // Ignore - use null as default
-            }
-            if (value !== defaultValue) {
+            if (this.shouldSaveAttribute(obj, attr, value)) {
               const stringValue = this.convertToString(attr, value);
               const attrName = this.getSerializedAttributeName(attr, emd);
               this.output.push(` ${attrName}="${this.escapeXml(stringValue)}"`);
@@ -587,6 +590,43 @@ export class XMLSave {
   /**
    * Check if feature is an attribute (not a reference)
    */
+  /**
+   * Whether an attribute is written at all.
+   *
+   * Java EMF asks XMLSaveImpl.shouldSaveFeature():
+   *
+   *   return o.eIsSet(f) || keepDefaults && f.getDefaultValueLiteral() != null;
+   *
+   * The first clause is what matters here. "Equal to the default" and "never
+   * set" are two different states, and only the second one may be dropped -
+   * an attribute that a document explicitly carried has to survive a round
+   * trip even where its value happens to match the default (#95).
+   *
+   * The value comparison stays in front of eIsSet() as the general case, and
+   * because the Ecore metamodel classes keep their state in typed fields
+   * rather than in the reflective settings map, so eIsSet() reports false for
+   * a name that was assigned through setName().
+   */
+  protected shouldSaveAttribute(obj: EObject, attr: EAttribute, value: any): boolean {
+    // Get default value safely - may return null if type not properly set
+    let defaultValue: any = null;
+    try {
+      defaultValue = attr.getDefaultValue();
+    } catch {
+      // Ignore - use null as default
+    }
+
+    if (value !== defaultValue) {
+      return true;
+    }
+
+    if (this.keepDefaults && attr.getDefaultValueLiteral() != null) {
+      return true;
+    }
+
+    return obj.eIsSet(attr);
+  }
+
   /**
    * Whether a multi-valued data type feature has to be written as child
    * elements instead of one whitespace-separated attribute.
