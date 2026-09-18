@@ -636,9 +636,11 @@ describe('Dynamic Model', () => {
       employees.push(employee1);
       employees.push(employee2);
 
-      // Get fragment for root object
+      // Get fragment for root object. A resource with a single root leaves the
+      // root segment empty, which is why EMF files carry href="other.xmi#/"
+      // (ResourceImpl.getURIFragmentRootSegment).
       const deptFragment = resource.getURIFragment(department);
-      expect(deptFragment).toBe('/0');
+      expect(deptFragment).toBe('/');
 
       // Resolve back
       const resolved = resource.getEObject(deptFragment);
@@ -648,7 +650,7 @@ describe('Dynamic Model', () => {
       // feature, as EMF requires (#89); what matters below is that the fragment
       // resolves back to the same object.
       const emp1Fragment = resource.getURIFragment(employee1);
-      expect(emp1Fragment).toBe('/0/@employees.0');
+      expect(emp1Fragment).toBe('//@employees.0');
 
       const resolvedEmp = resource.getEObject(emp1Fragment);
       expect(resolvedEmp).toBe(employee1);

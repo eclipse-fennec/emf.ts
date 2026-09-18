@@ -260,9 +260,10 @@ describe('Resource', () => {
       authors.push(author1);
       authors.push(author2);
 
-      expect(resource.getURIFragment(book)).toBe('/0');
-      expect(resource.getURIFragment(author1)).toBe('/0/@authors.0');
-      expect(resource.getURIFragment(author2)).toBe('/0/@authors.1');
+      // Single root: the root segment is empty, as in EMF's own output.
+      expect(resource.getURIFragment(book)).toBe('/');
+      expect(resource.getURIFragment(author1)).toBe('//@authors.0');
+      expect(resource.getURIFragment(author2)).toBe('//@authors.1');
     });
 
     /**

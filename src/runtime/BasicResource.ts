@@ -17,6 +17,48 @@ import { EReference } from '../EReference.js';
 import { EList, isEList, createResourceContentsEList } from '../EList.js';
 
 /**
+ * Whether the object is an Ecore metamodel element, i.e. an EModelElement.
+ * Checked structurally, so no part of the Ecore bootstrap is needed to answer it.
+ */
+function isEModelElement(obj: unknown): boolean {
+  return typeof (obj as any)?.getEAnnotations === 'function';
+}
+
+/**
+ * The name Ecore addresses a child by: an ENamedElement by its name, an
+ * EAnnotation by its source. Null for anything else, which keeps the
+ * `@feature.index` form.
+ */
+function namedSegmentKey(obj: unknown): string | null {
+  const candidate = obj as any;
+  if (typeof candidate?.getName === 'function') {
+    return candidate.getName() ?? '';
+  }
+  if (typeof candidate?.getSource === 'function') {
+    return candidate.getSource() ?? '';
+  }
+  return null;
+}
+
+/**
+ * The characters BasicEObjectImpl.eEncodeValue() escapes in a fragment
+ * segment, plus everything below U+0020.
+ */
+const FRAGMENT_ESCAPES = new Set([' ', '"', '#', '%', '&', "'", ',', '/', ':', '<', '>']);
+
+function encodeFragmentSegment(value: string): string {
+  let result = '';
+  for (const character of value) {
+    const code = character.codePointAt(0)!;
+    result +=
+      code < 0x20 || FRAGMENT_ESCAPES.has(character)
+        ? `%${code.toString(16).toUpperCase().padStart(2, '0')}`
+        : character;
+  }
+  return result;
+}
+
+/**
  * Basic Resource implementation
  * Implements Notifier interface to support EContentAdapter and change notifications.
  */
@@ -348,11 +390,7 @@ export class BasicResource implements Resource, Notifier {
     while (current) {
       const container: EObject | null = current.eContainer();
       if (!container) {
-        // Root object: addressed by its index among the resource contents.
-        const index = this.contents.indexOf(current);
-        if (index >= 0) {
-          segments.unshift(String(index));
-        }
+        segments.unshift(this.uriFragmentRootSegment(current));
         break;
       }
 
@@ -364,6 +402,21 @@ export class BasicResource implements Resource, Notifier {
   }
 
   /**
+   * The segment addressing a root object.
+   *
+   * Empty where the resource holds a single root, which is why EMF writes
+   * `//@exceptions.0` rather than `/0/@exceptions.0` - the form its own files
+   * carry. ResourceImpl.getURIFragmentRootSegment() does the same.
+   */
+  protected uriFragmentRootSegment(eObject: EObject): string {
+    if (this.contents.size() === 1) {
+      return '';
+    }
+    const index = this.contents.indexOf(eObject);
+    return index >= 0 ? String(index) : '';
+  }
+
+  /**
    * Builds one `@feature`/`@feature.index` segment for a child of the container.
    *
    * Falls back to the position among all containment children when the feature
@@ -371,6 +424,11 @@ export class BasicResource implements Resource, Notifier {
    * was set without one - unresolvable by EMF, but no worse than before.
    */
   private uriFragmentSegment(container: EObject, child: EObject): string {
+    const named = this.namedSegment(container, child);
+    if (named !== null) {
+      return named;
+    }
+
     const feature = this.containmentFeatureOf(container, child);
     if (!feature) {
       return String(container.eContents().indexOf(child));
@@ -385,6 +443,41 @@ export class BasicResource implements Resource, Notifier {
     const value = container.eGet(feature);
     const index = isEList(value) ? value.indexOf(child) : (value as EObject[]).indexOf(child);
     return `@${name}.${index}`;
+  }
+
+  /**
+   * The segment for a child of a metamodel element, which Ecore addresses by
+   * name rather than by feature and index: `#//ServiceRegistration/reference`,
+   * not `#//@eClassifiers.3/@eStructuralFeatures.1`.
+   *
+   * EModelElementImpl.eURIFragmentSegment() does this for every ENamedElement
+   * and, by its source, for every EAnnotation, appending `.n` where an earlier
+   * sibling carries the same name. Returns null where the rule does not apply,
+   * leaving the `@feature.index` form to the caller.
+   */
+  private namedSegment(container: EObject, child: EObject): string | null {
+    if (!isEModelElement(container)) {
+      return null;
+    }
+
+    const key = namedSegmentKey(child);
+    if (key === null) {
+      return null;
+    }
+
+    // Java counts earlier siblings that carry the same key.
+    let count = 0;
+    for (const sibling of container.eContents()) {
+      if (sibling === child) {
+        break;
+      }
+      if (namedSegmentKey(sibling) === key) {
+        count++;
+      }
+    }
+
+    const encoded = key === '' ? '%' : encodeFragmentSegment(key);
+    return count > 0 ? `${encoded}.${count}` : encoded;
   }
 
   /**
