@@ -322,7 +322,9 @@ describe('XMI Serialization', () => {
       console.log('Cross-resource XML:', xml);
 
       // Should reference the address in the other resource
-      expect(xml).toContain('primaryAddress=');
+      // Cross-document targets are written as an href child element, as EMF
+      // does regardless of cardinality (#85); same-document ones stay attributes.
+      expect(xml).toMatch(/<primaryAddress[^>]*href=/);
       expect(xml).toContain('name="Alice"');
     });
   });
@@ -403,7 +405,11 @@ describe('XMI Serialization', () => {
       console.log('Type-prefixed cross-doc ref XML:', xml);
 
       // Should have type prefix: "meta:ConcreteType targets.xmi#obj1"
-      expect(xml).toContain('target="meta:ConcreteType targets.xmi#obj1"');
+      // The type still travels with the reference, but as xsi:type on the href
+      // element rather than as a prefix inside the attribute value - which is
+      // where EMF puts it, and the only place the prefix gets declared (#85, #87).
+      expect(xml).toContain('<target xsi:type="meta:ConcreteType" href="targets.xmi#obj1"/>');
+      expect(xml).toContain('xmlns:meta=');
     });
 
     it('should NOT add type prefix for same-document refs', () => {
@@ -509,7 +515,8 @@ describe('XMI Serialization', () => {
       console.log('EClass reference XML:', xml);
 
       // Should contain href to the Person class
-      expect(xml).toContain('targetClass=');
+      // Cross-document target, so an href child element carrying the type (#85).
+      expect(xml).toMatch(/<targetClass[^>]*href=/);
       // The href contains fragment path to the class
       // Format can be "//Person" or full URI with package
       expect(xml).toContain('Person');
@@ -693,7 +700,9 @@ describe('XMI Serialization', () => {
       // Should NOT contain "EProxy"
       expect(xml).not.toContain('EProxy');
       // Should contain reference to the address resource
-      expect(xml).toContain('primaryAddress=');
+      // Cross-document targets are written as an href child element, as EMF
+      // does regardless of cardinality (#85); same-document ones stay attributes.
+      expect(xml).toMatch(/<primaryAddress[^>]*href=/);
       expect(xml).toContain('proxy-test-address.xmi#addr1');
     });
 
@@ -719,7 +728,9 @@ describe('XMI Serialization', () => {
       // Should NOT contain "EProxy"
       expect(xml).not.toContain('EProxy');
       // Should contain the proxy URI as href
-      expect(xml).toContain('primaryAddress=');
+      // Cross-document targets are written as an href child element, as EMF
+      // does regardless of cardinality (#85); same-document ones stay attributes.
+      expect(xml).toMatch(/<primaryAddress[^>]*href=/);
       expect(xml).toContain('non-existent.xmi#missing');
     });
 
@@ -783,7 +794,9 @@ describe('XMI Serialization', () => {
       console.log('Cross-resource reference XML:', xml);
 
       // Should reference the address in the other resource
-      expect(xml).toContain('primaryAddress=');
+      // Cross-document targets are written as an href child element, as EMF
+      // does regardless of cardinality (#85); same-document ones stay attributes.
+      expect(xml).toMatch(/<primaryAddress[^>]*href=/);
       expect(xml).not.toContain('EProxy');
 
       // Load person resource into new ResourceSet
@@ -1065,7 +1078,10 @@ describe('XMI Serialization', () => {
       console.log('Cross-subpackage eSuperTypes XML:', xml);
 
       // eSuperTypes href should use fragment path
-      expect(xml).toContain('href="#//base/Thing"');
+      // What matters here (#39) is the fragment path rather than an nsURI-based
+      // reference; whether it lands in an attribute or an href element depends
+      // on the container chain and is asserted elsewhere.
+      expect(xml).toContain('#//base/Thing');
       expect(xml).not.toContain('http://test.com/wp/base#//Thing');
     });
 
@@ -1160,7 +1176,9 @@ describe('XMI Serialization', () => {
       const outputXml = loadResource.saveToString();
 
       // eSuperTypes must still use fragment path, NOT nsURI-based href
-      expect(outputXml).toContain('href="#//base/Thing"');
+      // Input uses the href element form, which stays readable. What matters on
+      // output is the fragment path, not the form it takes.
+      expect(outputXml).toContain('#//base/Thing');
       expect(outputXml).not.toMatch(/href="http:\/\/test\.com\/wp\/base/);
 
       // eType for cross-subpackage ref must use fragment path
