@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `getEAnnotations()` returns the annotations the loader wrote ([#86](https://github.com/eclipse-fennec/emf.ts/issues/86)). `BasicEPackage`, `BasicEAnnotation` and `BasicEFactory` declared a typed field for `eAnnotations` without binding it in `eGet()`/`eSet()`, so the loader filled the generic settings map while the typed getter read the field — two separate containers. `getEAnnotation(source)` on `BasicEPackage` was a stub returning `null` on top of that. Both sides hand out the same list now, and the binding is pinned by tests for all ten `Basic*` classes.
+
+  Introduced in 0.2.0-next.1, where those three `return []` stubs were replaced by real fields without the reflective binding that the other seven classes have. Saving was never affected, since it reads the reflective side.
 - A single-valued cross-document reference is written as an href child element ([#85](https://github.com/eclipse-fennec/emf.ts/issues/85)). The form followed the cardinality of the feature — single-valued always became an attribute, multi-valued an element — while EMF decides by where the target is. The same target referenced from a single-valued and a multi-valued feature was therefore serialized two different ways. Both take the element form for a target in another document now, and same-document targets keep the attribute.
 - Namespace prefixes used by reference types are declared ([#87](https://github.com/eclipse-fennec/emf.ts/issues/87)). `collectPackages()` walked contained objects only, so a prefix appearing solely in a reference stayed undeclared and the reader could not resolve it. The type of a cross-document target is written as `xsi:type` on the href element — where EMF puts it, and where the prefix is accounted for — instead of as a prefix inside the attribute value.
 

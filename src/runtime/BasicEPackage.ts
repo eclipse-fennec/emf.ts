@@ -22,6 +22,7 @@ import {
   EObjectContainmentWithInverseEListLazy,
   createIndexedProxy,
   createMetamodelEList,
+  replaceListContents,
 } from '../EList.js';
 
 /**
@@ -198,7 +199,7 @@ export class BasicEPackage extends BasicEObject implements EPackage {
   }
 
   getEAnnotation(source: string): EAnnotation | null {
-    return null;
+    return this.eAnnotations.find(a => a.getSource() === source) || null;
   }
 
   override eClass(): EClass {
@@ -225,6 +226,8 @@ export class BasicEPackage extends BasicEObject implements EPackage {
         return this.eSuperPackage;
       case 'eFactoryInstance':
         return this.eFactoryInstance;
+      case 'eAnnotations':
+        return this.eAnnotations;
       default:
         return super.eGet(feature);
     }
@@ -275,6 +278,9 @@ export class BasicEPackage extends BasicEObject implements EPackage {
       case 'eFactoryInstance':
         this.eFactoryInstance = newValue;
         super.eSet(feature, newValue);
+        break;
+      case 'eAnnotations':
+        replaceListContents(this.eAnnotations, newValue);
         break;
       default:
         super.eSet(feature, newValue);
