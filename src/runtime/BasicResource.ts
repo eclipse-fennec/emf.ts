@@ -13,7 +13,8 @@ import { EObject } from '../EObject.js';
 import { Notifier } from '../notify/Notifier.js';
 import { Adapter } from '../notify/Adapter.js';
 import { Notification } from '../notify/Notification.js';
-import { EList, createResourceContentsEList } from '../EList.js';
+import { EReference } from '../EReference.js';
+import { EList, isEList, createResourceContentsEList } from '../EList.js';
 
 /**
  * Basic Resource implementation
@@ -325,33 +326,95 @@ export class BasicResource implements Resource, Notifier {
     return null;
   }
 
+  /**
+   * Returns the path fragment identifying the object inside this resource.
+   *
+   * The format is the one EMF defines: the root index, then one segment per
+   * containment step naming the feature - `@<feature>.<index>` for a
+   * multi-valued containment and `@<feature>` for a single-valued one:
+   *
+   *     /1/@operations.0/@parameters.0
+   *
+   * A bare index path such as `/1/0` cannot be resolved by Java EMF, whose
+   * eObjectForURIFragmentSegment() requires the `@` form, and it is ambiguous
+   * anyway: the index would have to count across all containment children
+   * rather than within one feature, so two features on the same class would
+   * collide (#89).
+   */
   getURIFragment(eObject: EObject): string {
-    // Find position in tree
-    const path: number[] = [];
+    const segments: string[] = [];
     let current: EObject | null = eObject;
 
     while (current) {
-      const container = current.eContainer();
+      const container: EObject | null = current.eContainer();
       if (!container) {
-        // Root object
+        // Root object: addressed by its index among the resource contents.
         const index = this.contents.indexOf(current);
         if (index >= 0) {
-          path.unshift(index);
+          segments.unshift(String(index));
         }
         break;
       }
 
-      // Find index in parent's contents
-      const siblings = container.eContents();
-      const index = siblings.indexOf(current);
-      if (index >= 0) {
-        path.unshift(index);
-      }
-
+      segments.unshift(this.uriFragmentSegment(container, current));
       current = container;
     }
 
-    return '/' + path.join('/');
+    return '/' + segments.join('/');
+  }
+
+  /**
+   * Builds one `@feature`/`@feature.index` segment for a child of the container.
+   *
+   * Falls back to the position among all containment children when the feature
+   * cannot be determined, which keeps a fragment for objects whose container
+   * was set without one - unresolvable by EMF, but no worse than before.
+   */
+  private uriFragmentSegment(container: EObject, child: EObject): string {
+    const feature = this.containmentFeatureOf(container, child);
+    if (!feature) {
+      return String(container.eContents().indexOf(child));
+    }
+
+    const name = feature.getName();
+    if (!feature.isMany()) {
+      return `@${name}`;
+    }
+
+    // The index counts within this feature, not across all children.
+    const value = container.eGet(feature);
+    const index = isEList(value) ? value.indexOf(child) : (value as EObject[]).indexOf(child);
+    return `@${name}.${index}`;
+  }
+
+  /**
+   * The containment reference holding the child.
+   *
+   * Normally recorded on the child when the containment list set its container;
+   * otherwise the container's containment references are searched.
+   */
+  private containmentFeatureOf(container: EObject, child: EObject): EReference | null {
+    const recorded = child.eContainmentFeature?.();
+    if (recorded) {
+      return recorded;
+    }
+
+    for (const reference of container.eClass().getEAllContainments()) {
+      const value = container.eGet(reference);
+      if (value === null || value === undefined) {
+        continue;
+      }
+      if (reference.isMany()) {
+        const contains = isEList(value) ? value.contains(child) : (value as EObject[]).includes(child);
+        if (contains) {
+          return reference;
+        }
+      } else if (value === child) {
+        return reference;
+      }
+    }
+
+    return null;
   }
 
   async save(options?: Map<string, any>): Promise<void> {

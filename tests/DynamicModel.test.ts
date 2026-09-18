@@ -644,9 +644,11 @@ describe('Dynamic Model', () => {
       const resolved = resource.getEObject(deptFragment);
       expect(resolved).toBe(department);
 
-      // Get fragment for nested object
+      // Get fragment for nested object. The segment names the containment
+      // feature, as EMF requires (#89); what matters below is that the fragment
+      // resolves back to the same object.
       const emp1Fragment = resource.getURIFragment(employee1);
-      expect(emp1Fragment).toBe('/0/0');
+      expect(emp1Fragment).toBe('/0/@employees.0');
 
       const resolvedEmp = resource.getEObject(emp1Fragment);
       expect(resolvedEmp).toBe(employee1);
