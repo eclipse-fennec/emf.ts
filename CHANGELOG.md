@@ -5,9 +5,30 @@ All notable changes to the `emfts` package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0-next.1] - 2026-09-18
+
+### Changed — BREAKING
+
+- `EcoreUtil.copy()` copies deeply ([#79](https://github.com/eclipse-fennec/emf.ts/issues/79)). It used to copy the attribute values of the given object only, so containment children were dropped — a class came back without its features or operations. It now behaves as in Java EMF: children are copied, cross-references whose target lies inside the copied tree point at the copy, and references leaving the tree stay on the original, so a type reference keeps pointing at the same `EDataType`.
+
+  Callers who relied on the shallow behaviour get more than before; `EcoreUtil.copyShallow()` keeps that behaviour under its own name.
+
+### Added
+
+- `EcoreUtil.copyAll(objects)` copies several objects in one pass, so cross-references between them are redirected to the copies rather than left on the originals ([#79](https://github.com/eclipse-fennec/emf.ts/issues/79)). Copying one by one cannot achieve that, since each call would see the others as external.
+- `EcoreUtil.copyShallow(object)` copies attribute values only, without containment children or references — the behaviour `copy()` had before, kept for callers that want exactly that. Java EMF has no equivalent.
+- `Copier` exposes the original-to-copy `mapping`, for callers that need to find the copy of a given object. Java has this as the inner class `EcoreUtil.Copier`, a `Map` subclass; in TypeScript it is a named export, so `import { Copier }` rather than `EcoreUtil.Copier`.
+- `loadFromStringAsync()` on `XMLResource` fetches the packages a document needs and the registry does not have, then parses again ([#88](https://github.com/eclipse-fennec/emf.ts/issues/88)). Java loads them inside the parse, which blocking IO allows; `URIConverter.createInputStream()` is asynchronous here, so the parse records what it could not resolve and `getMissingPackages()` reports it. `load()` takes this path, so a document loaded by URI gets it for free.
+- `OPTION_KEEP_DEFAULT_CONTENT` writes every feature that declares a default value literal, mirroring `XMLResource.OPTION_KEEP_DEFAULT_CONTENT` ([#95](https://github.com/eclipse-fennec/emf.ts/issues/95)).
+- `Resource.DEFAULT_EXTENSION` is the wildcard entry of the resource factory registry, for URIs without a file extension — a namespace URI used as a location ([#88](https://github.com/eclipse-fennec/emf.ts/issues/88)). Nothing registers it by default, as in Java EMF.
 
 ### Fixed
+
+- `eContainer()` is set for classifiers and subpackages ([#80](https://github.com/eclipse-fennec/emf.ts/issues/80)). `EClassifiersEList` and `ESubpackagesEList` extended `BasicEList`, which knows nothing about containment, while `EClass.eStructuralFeatures` used the containment variant — so an `EAttribute` knew its `EClass` but an `EClass` did not know its `EPackage`. Both lists extend `EObjectContainmentWithInverseEListLazy` now, which maintains the container alongside the existing `ePackage`/`eSuperPackage` back-references and detaches an element from its previous container, as Java EMF does for every containment reference.
+
+  Everything walking up the tree answered silently wrong before and is fixed with it: `EcoreUtil.getRootContainer()` returned the classifier instead of the package, `EcoreUtil.isAncestor()` returned `false` for a class inside its own package, and `EcoreUtil.getURI()` worked on a truncated tree.
+
+- As a consequence, `eSuperTypes` pointing at a class in a sibling subpackage is serialized as an attribute with a fragment path (`eSuperTypes="#//base/Thing"`) instead of an `href` element. The target only looked cross-document because the container chain ended at the classifier. This is the form real `.ecore` files use, matches what `eType` already produced, and the `href` element form is still read. Two expectations in `tests/XMISave.test.ts` encoded the old output and were updated.
 
 - `getURIFragment()` produces the path fragment EMF defines ([#89](https://github.com/eclipse-fennec/emf.ts/issues/89)). A same-document reference was written as a bare index path (`/1/0`), which Java EMF cannot resolve — `eObjectForURIFragmentSegment()` requires the `@feature` form and reports `Expecting @ at index 0`. The fragment now names the containment feature per step: `/1/@operations.0`, `/1/@operations.0/@parameters.0`, and `/1/@main` without an index for a single-valued containment.
 
@@ -28,28 +49,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `EEnumLiteral.toString()` returns the literal instead of the inherited object identity ([#76](https://github.com/eclipse-fennec/emf.ts/issues/76)). Since enum attributes hold the `EEnumLiteral` itself, `String(value)` is what display, logging and comparison code hits, and it produced `EEnumLiteral@<hash>` from `BasicEObject.toString()`. It now returns `getLiteral()`, which falls back to the name when no explicit literal is set — the same as `EEnumLiteralImpl.toString()` in Java EMF. `toString()` on other model objects is unchanged.
 - Multi-valued attributes survive a save/load round trip ([#75](https://github.com/eclipse-fennec/emf.ts/issues/75)). `XMLSave` writes such a feature as one whitespace-separated attribute, but the reader took the whole attribute as a single entry: `EString` values were joined into one, numeric values beyond the first were dropped, and `[true, false]` came back as `[false]` — a wrong value rather than a missing one. `setAttribValue()` now splits a `DATATYPE_IS_MANY` attribute and converts each part individually, mirroring `XMLHandler.setAttribValue` in Java EMF. The text content of a child element is deliberately not split, since that is how a value containing spaces is represented.
 - Values that the attribute form cannot represent are written as child elements ([#75](https://github.com/eclipse-fennec/emf.ts/issues/75)). Joining with a space is only reversible while no value contains whitespace and none is empty — `["a b", "c"]` would otherwise read back as `["a", "b", "c"]`. Such lists are serialized as `<werte>a b</werte>` elements instead, as `XMLSaveImpl.saveDataTypeMany()` does in Java EMF. Simple values keep the compact attribute form.
+- The XMI serializer keeps an attribute whose value equals the default ([#95](https://github.com/eclipse-fennec/emf.ts/issues/95)). The decision was a value comparison, so a document that explicitly carried `apiType="PROVIDER"` lost that attribute on every save, `defaultValueLiteral` being `PROVIDER` as well — and `lowerBound="1"` did not help, which left the result invalid against its own metamodel. `shouldSaveAttribute()` follows the shape of `XMLSaveImpl.shouldSaveFeature()` now: the value comparison, then `eIsSet()`, so an attribute the document stated survives while one that was never set stays out. The comparison has to come first, since the Ecore classes keep their state in typed fields and report `eIsSet()` as `false` for a name assigned through `setName()`.
 
-## [Unreleased]
-
-### Changed — BREAKING
-
-- `EcoreUtil.copy()` copies deeply ([#79](https://github.com/eclipse-fennec/emf.ts/issues/79)). It used to copy the attribute values of the given object only, so containment children were dropped — a class came back without its features or operations. It now behaves as in Java EMF: children are copied, cross-references whose target lies inside the copied tree point at the copy, and references leaving the tree stay on the original, so a type reference keeps pointing at the same `EDataType`.
-
-  Callers who relied on the shallow behaviour get more than before; `EcoreUtil.copyShallow()` keeps that behaviour under its own name.
-
-### Added
-
-- `EcoreUtil.copyAll(objects)` copies several objects in one pass, so cross-references between them are redirected to the copies rather than left on the originals ([#79](https://github.com/eclipse-fennec/emf.ts/issues/79)). Copying one by one cannot achieve that, since each call would see the others as external.
-- `EcoreUtil.copyShallow(object)` copies attribute values only, without containment children or references — the behaviour `copy()` had before, kept for callers that want exactly that. Java EMF has no equivalent.
-- `Copier` exposes the original-to-copy `mapping`, for callers that need to find the copy of a given object. Java has this as the inner class `EcoreUtil.Copier`, a `Map` subclass; in TypeScript it is a named export, so `import { Copier }` rather than `EcoreUtil.Copier`.
-
-### Fixed
-
-- `eContainer()` is set for classifiers and subpackages ([#80](https://github.com/eclipse-fennec/emf.ts/issues/80)). `EClassifiersEList` and `ESubpackagesEList` extended `BasicEList`, which knows nothing about containment, while `EClass.eStructuralFeatures` used the containment variant — so an `EAttribute` knew its `EClass` but an `EClass` did not know its `EPackage`. Both lists extend `EObjectContainmentWithInverseEListLazy` now, which maintains the container alongside the existing `ePackage`/`eSuperPackage` back-references and detaches an element from its previous container, as Java EMF does for every containment reference.
-
-  Everything walking up the tree answered silently wrong before and is fixed with it: `EcoreUtil.getRootContainer()` returned the classifier instead of the package, `EcoreUtil.isAncestor()` returned `false` for a class inside its own package, and `EcoreUtil.getURI()` worked on a truncated tree.
-
-- As a consequence, `eSuperTypes` pointing at a class in a sibling subpackage is serialized as an attribute with a fragment path (`eSuperTypes="#//base/Thing"`) instead of an `href` element. The target only looked cross-document because the container chain ended at the classifier. This is the form real `.ecore` files use, matches what `eType` already produced, and the `href` element form is still read. Two expectations in `tests/XMISave.test.ts` encoded the old output and were updated.
+  Java is stricter here — its `eIsSet()` degrades to the same value comparison for a non-unsettable feature, so it drops such an attribute as well. Keeping it means a load/save cycle no longer deletes what the author wrote, and the file stays readable by Java EMF.
+- A namespace URI resolves through the resource set ([#88](https://github.com/eclipse-fennec/emf.ts/issues/88)). `getFactoryForPrefix()` consulted the package registry and gave up otherwise, with an error naming only the prefix. The new `getPackageForURI()` walks registry, the `xsi:schemaLocation` entry — a map that was written in three places and read in none — and the URI as a resource URI of the resource set, registers whatever it finds, and ends at an overridable `handleMissingPackage()`. The error names the nsURI now.
+- `getURIFragment()` addresses metamodel elements by name. Ecore does not use `@feature.index` for its own elements: `EModelElementImpl.eURIFragmentSegment()` returns the name of an `ENamedElement` and the source of an `EAnnotation`, appending `.n` where an earlier sibling carries the same key. `#//ServiceRegistration/reference` is what `.ecore` files contain, and what this now produces instead of `#//@eClassifiers.3/@eStructuralFeatures.1`.
+- The root segment of a fragment is empty where the resource holds a single root, as `ResourceImpl.getURIFragmentRootSegment()` defines. EMF's own files carry `href="payment.xmi#/"` and `exceptions="//@exceptions.0"`; the output was `/0` and `/0/@exceptions.0`. Three test expectations pinned the old form and were updated. Both forms are still read.
 
 ## [0.2.0-next.1] - 2026-08-14
 
