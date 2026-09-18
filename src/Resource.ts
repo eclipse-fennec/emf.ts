@@ -134,10 +134,18 @@ export namespace Resource {
   }
 
   /**
+   * The extension of the factory used where nothing more specific matches.
+   * Mirrors Resource.Factory.Registry.DEFAULT_EXTENSION.
+   */
+  export const DEFAULT_EXTENSION = '*';
+
+  /**
    * Global factory registry instance.
    */
   export const INSTANCE_FACTORY_REGISTRY: FactoryRegistry = createGlobalFactoryRegistry();
 }
+
+const DEFAULT_EXTENSION = '*';
 
 function createGlobalFactoryRegistry(): Resource.FactoryRegistry {
   const extensionMap = new Map<string, Resource.Factory>();
@@ -156,7 +164,12 @@ function createGlobalFactoryRegistry(): Resource.FactoryRegistry {
         return extensionMap.get(extension)!;
       }
 
-      return null;
+      // A URI with no extension of its own - a namespace URI used as a
+      // location, say - falls back to the wildcard entry, as
+      // Resource.Factory.Registry.DEFAULT_EXTENSION does in Java EMF. Nothing
+      // registers it by default; an application that serves models from URLs
+      // without file names sets it.
+      return extensionMap.get(DEFAULT_EXTENSION) ?? null;
     },
 
     getExtensionToFactoryMap() {

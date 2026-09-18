@@ -30,6 +30,7 @@ import {
   OTHER
 } from './XMLHelper.js';
 import { ExtendedMetaData, SIMPLE_CONTENT } from './ExtendedMetaData.js';
+import { isEPackage } from '../util/TypeGuards.js';
 
 /**
  * Stack types for tracking parse state
@@ -127,6 +128,30 @@ export const HREF_ATTRIB = 'href';
 export const ID_ATTRIB = 'id';
 
 /**
+ * A namespace URI the document used and the parser could not resolve.
+ *
+ * Collected during a parse so a caller with an asynchronous loading path can
+ * fetch the packages and try again - Java EMF loads them in the middle of the
+ * parse, which blocking IO allows and this runtime does not.
+ */
+export interface MissingPackage {
+  /** The namespace URI as written in the document. */
+  nsURI: string;
+  /** Where to look: the xsi:schemaLocation entry for it, or the nsURI itself. */
+  location: string;
+}
+
+/** The first EPackage among a resource's roots, as EcoreUtil.getObjectByType does. */
+function firstPackageOf(contents: Iterable<EObject>): EPackage | null {
+  for (const content of contents) {
+    if (isEPackage(content)) {
+      return content;
+    }
+  }
+  return null;
+}
+
+/**
  * XMLHandler - base class for XML loading
  * Handles SAX events and creates EObjects
  */
@@ -142,6 +167,7 @@ export class XMLHandler {
   // Namespace handling
   protected prefixesToFactories: Map<string, EFactory> = new Map();
   protected urisToLocations: Map<string, URI> = new Map();
+  protected missingPackages: Map<string, MissingPackage> = new Map();
 
   // Reference handling
   protected forwardSingleReferences: SingleReference[] = [];
@@ -406,7 +432,7 @@ export class XMLHandler {
     const eFactory = this.getFactoryForPrefix(prefix);
 
     if (!eFactory) {
-      this.error(`Package not found for prefix '${prefix}'`);
+      this.error(`Package not found for prefix '${prefix}'${this.nsURIHint(prefix)}`);
       this.processObject(null); // Push null to keep stack in sync
       return;
     }
@@ -455,7 +481,7 @@ export class XMLHandler {
 
     const eFactory = this.getFactoryForPrefix(typePrefix);
     if (!eFactory) {
-      this.error(`Factory not found for type '${typeName}'`);
+      this.error(`Factory not found for type '${typeName}'${this.nsURIHint(typePrefix)}`);
       return null;
     }
 
@@ -1187,19 +1213,123 @@ export class XMLHandler {
       return factory;
     }
 
-    const nsURI = this.helper.getURI(prefix);
-    if (nsURI) {
-      const ePackage = this.packageRegistry.getEPackage(nsURI);
-      if (ePackage) {
-        factory = ePackage.getEFactoryInstance();
-        if (factory) {
-          this.prefixesToFactories.set(prefix, factory);
-          return factory;
-        }
+    const ePackage = this.getPackageForURI(this.helper.getURI(prefix));
+    if (ePackage) {
+      factory = ePackage.getEFactoryInstance();
+      if (factory) {
+        this.prefixesToFactories.set(prefix, factory);
+        return factory;
       }
     }
 
     return null;
+  }
+
+  /**
+   * Resolve a namespace URI to its package (#88).
+   *
+   * Follows XMLHandler.getPackageForURI() in Java EMF: registry, then the
+   * xsi:schemaLocation redirect, then the URI as a resource URI of the
+   * resource set, and the package found that way goes into the registry. The
+   * steps Java takes with blocking IO - createInputStream() on a URI nothing
+   * has loaded yet - cannot happen inside this parse, so an unresolved URI is
+   * recorded in missingPackages() for a caller that can load it and parse
+   * again.
+   */
+  protected getPackageForURI(uriString: string | null): EPackage | null {
+    if (!uriString) {
+      return null;
+    }
+
+    let ePackage: EPackage | null = this.packageRegistry.getEPackage(uriString) ?? null;
+    if (ePackage && isInternalEObject(ePackage) && ePackage.eIsProxy()) {
+      ePackage = null;
+    }
+    if (!ePackage) {
+      ePackage = this.loadPackageForURI(uriString);
+    }
+    if (!ePackage) {
+      ePackage = this.handleMissingPackage(uriString);
+    }
+
+    if (ePackage) {
+      this.missingPackages.delete(uriString);
+      return ePackage;
+    }
+
+    if (!this.missingPackages.has(uriString)) {
+      const location = this.urisToLocations.get(uriString);
+      this.missingPackages.set(uriString, {
+        nsURI: uriString,
+        location: location ? location.toString() : uriString,
+      });
+    }
+    return null;
+  }
+
+  /**
+   * Look for the package among the resources of the resource set, under the
+   * location xsi:schemaLocation gives for it or under the namespace URI
+   * itself. Only resources that are already there are consulted, since
+   * loading one is asynchronous here.
+   */
+  protected loadPackageForURI(uriString: string): EPackage | null {
+    const resourceSet = this.resource?.getResourceSet();
+    if (!resourceSet) {
+      return null;
+    }
+
+    const location = this.urisToLocations.get(uriString);
+    const uri = location ?? URI.createURI(uriString);
+    const fragment = uri.fragment();
+    const trimmed = fragment ? uri.trimFragment() : uri;
+
+    let resource = resourceSet.getResource(trimmed, false);
+    if (!resource) {
+      const normalized = resourceSet.getURIConverter()?.normalize(trimmed);
+      if (normalized && normalized.toString() !== trimmed.toString()) {
+        resource = resourceSet.getResource(normalized, false);
+      }
+    }
+    if (!resource) {
+      return null;
+    }
+
+    const content = fragment
+      ? resource.getEObject(fragment)
+      : firstPackageOf(resource.getContents());
+
+    if (!isEPackage(content)) {
+      return null;
+    }
+
+    // Java does the same, so the next prefix using this URI is a registry hit.
+    this.packageRegistry.set(content.getNsURI() || uriString, content);
+    return content;
+  }
+
+  /**
+   * Last chance to supply a package for a namespace URI, for subclasses.
+   * Mirrors XMLHandler.handleMissingPackage().
+   */
+  protected handleMissingPackage(_uriString: string): EPackage | null {
+    return null;
+  }
+
+  /**
+   * The namespace URIs this parse could not resolve.
+   */
+  getMissingPackages(): MissingPackage[] {
+    return [...this.missingPackages.values()];
+  }
+
+  /**
+   * The namespace URI behind a prefix, for the error message. Naming only the
+   * prefix leaves nothing to act on (#88).
+   */
+  protected nsURIHint(prefix: string): string {
+    const nsURI = this.helper.getURI(prefix);
+    return nsURI ? ` (nsURI '${nsURI}')` : '';
   }
 
   /**
