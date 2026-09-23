@@ -32,6 +32,7 @@ export class BasicEOperation extends BasicEObject implements EOperation {
     (parameter, owner) => (parameter as any).setEOperation(owner)
   );
   private eExceptions: EList<EClassifier> = createMetamodelEList<EClassifier>(this);
+  private eGenericExceptions: EList<EGenericType> = createMetamodelContainmentEList<EGenericType>(this);
   private eAnnotations: EList<EAnnotation> = createMetamodelContainmentEList<EAnnotation>(this, undefined, (annotation, owner) =>
     (annotation as any).setEModelElement(owner)
   );
@@ -96,6 +97,10 @@ export class BasicEOperation extends BasicEObject implements EOperation {
 
   addException(exception: EClassifier): void {
     this.eExceptions.add(exception);
+  }
+
+  getEGenericExceptions(): EList<EGenericType> {
+    return this.eGenericExceptions;
   }
 
   isMany(): boolean {
@@ -203,6 +208,8 @@ export class BasicEOperation extends BasicEObject implements EOperation {
         return this.eParameters;
       case 'eExceptions':
         return this.eExceptions;
+      case 'eGenericExceptions':
+        return this.eGenericExceptions;
       case 'eAnnotations':
         return this.eAnnotations;
       case 'ordered':
@@ -237,6 +244,9 @@ export class BasicEOperation extends BasicEObject implements EOperation {
         break;
       case 'eExceptions':
         replaceListContents(this.eExceptions, newValue);
+        break;
+      case 'eGenericExceptions':
+        replaceListContents(this.eGenericExceptions, newValue);
         break;
       case 'eAnnotations':
         replaceListContents(this.eAnnotations, newValue);

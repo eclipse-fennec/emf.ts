@@ -9,6 +9,7 @@
 import { ENamedElement } from './ENamedElement.js';
 import { EClass } from './EClass.js';
 import { EClassifier } from './EClassifier.js';
+import { EGenericType } from './EGenericType.js';
 import { EParameter } from './EParameter.js';
 import { EList } from './EList.js';
 
@@ -41,6 +42,11 @@ export interface EOperation extends ENamedElement {
    * Returns the list of exceptions that this operation can throw.
    */
   getEExceptions(): EList<EClassifier>;
+
+  /**
+   * Returns the list of generic exceptions that this operation can throw.
+   */
+  getEGenericExceptions(): EList<EGenericType>;
 
   /**
    * Returns whether the operation is many-valued.

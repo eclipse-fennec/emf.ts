@@ -609,6 +609,39 @@ export class EcorePackageImpl extends BasicEPackage {
     detailsRef.setUpperBound(-1);
     this._eAnnotationClass.getEStructuralFeatures().push(detailsRef);
 
+    // ===== Features Ecore persists that were missing here (#102) =====
+    // Without them the loader finds no feature for the attribute or element
+    // and drops it, so the information is gone after the next save.
+
+    // EAnnotation.contents - how EMF embeds a model in an annotation
+    const contentsRef = new BasicEReference();
+    contentsRef.setName('contents');
+    contentsRef.setEType(this._eObjectClass);
+    contentsRef.setContainment(true);
+    contentsRef.setUpperBound(-1);
+    this._eAnnotationClass.getEStructuralFeatures().push(contentsRef);
+
+    // EAnnotation.references
+    const referencesRef = new BasicEReference();
+    referencesRef.setName('references');
+    referencesRef.setEType(this._eObjectClass);
+    referencesRef.setUpperBound(-1);
+    this._eAnnotationClass.getEStructuralFeatures().push(referencesRef);
+
+    // EOperation.eExceptions
+    const eExceptionsRef = new BasicEReference();
+    eExceptionsRef.setName('eExceptions');
+    eExceptionsRef.setEType(this._eClassifierClass);
+    eExceptionsRef.setUpperBound(-1);
+    this._eOperationClass.getEStructuralFeatures().push(eExceptionsRef);
+
+    // EReference.eKeys
+    const eKeysRef = new BasicEReference();
+    eKeysRef.setName('eKeys');
+    eKeysRef.setEType(this._eAttributeClass);
+    eKeysRef.setUpperBound(-1);
+    this._eReferenceClass.getEStructuralFeatures().push(eKeysRef);
+
     // ===== Generics (#65) =====
     // Without these features the loader rejects <eGenericType> and
     // <eTypeParameters> as unknown, and a feature typed generically silently
@@ -644,6 +677,14 @@ export class EcorePackageImpl extends BasicEPackage {
     eOperationTypeParametersRef.setContainment(true);
     eOperationTypeParametersRef.setUpperBound(-1);
     this._eOperationClass.getEStructuralFeatures().push(eOperationTypeParametersRef);
+
+    // EOperation.eGenericExceptions (#102)
+    const eGenericExceptionsRef = new BasicEReference();
+    eGenericExceptionsRef.setName('eGenericExceptions');
+    eGenericExceptionsRef.setEType(this._eGenericTypeClass);
+    eGenericExceptionsRef.setContainment(true);
+    eGenericExceptionsRef.setUpperBound(-1);
+    this._eOperationClass.getEStructuralFeatures().push(eGenericExceptionsRef);
 
     // ETypeParameter.eBounds
     const eBoundsRef = new BasicEReference();

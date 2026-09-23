@@ -5,6 +5,14 @@ All notable changes to the `emfts` package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Five features Ecore persists are declared in the metamodel ([#102](https://github.com/eclipse-fennec/emf.ts/issues/102)): `EAnnotation.contents` and `references`, `EOperation.eExceptions` and `eGenericExceptions`, and `EReference.eKeys`. The loader found no feature for them and dropped the attribute or element, so a `.ecore` file lost that information on load and on every save afterwards — annotation contents being the worst of them, since that is where EMF embeds GenModel, OCL and documentation payloads. The accessors and the `eGet()`/`eSet()` bindings were already in place; nothing ever reached them. `getEGenericExceptions()` is new on `EOperation`, the other four had theirs.
+
+  The list comes from comparing every `EStructuralFeature` of `Ecore.ecore` against what this metamodel reports, filtered to the ones Ecore does not mark `derived`, `transient` or `volatile`. That comparison is a test now, so a future gap fails there rather than in a user's file.
+
 ## [0.3.0-next.1] - 2026-09-18
 
 ### Changed — BREAKING
