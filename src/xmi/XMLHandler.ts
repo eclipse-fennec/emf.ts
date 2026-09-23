@@ -968,15 +968,41 @@ export class XMLHandler {
       // It's a reference - handle as ID
       // For multi-valued references, the value may contain space-separated IDs
       if (feature.isMany()) {
-        const ids = value.trim().split(/\s+/);
-        for (const id of ids) {
-          if (id) {
-            this.setValueFromId(eObject, feature as EReference, id, -1);
-          }
-        }
+        this.setValuesFromIds(eObject, feature as EReference, value);
       } else {
         this.setValueFromId(eObject, feature as EReference, value, position);
       }
+    }
+  }
+
+  /**
+   * Read a multi-valued reference attribute, which EMF writes as
+   * `Type URI Type URI ...` where the target needs a type.
+   *
+   * Splitting on whitespace alone turns every type token into a reference of
+   * its own, and since it carries no `#` it ends up as a proxy into this very
+   * resource - a plausible-looking entry pointing nowhere, which saving then
+   * writes back into the file (#101).
+   *
+   * XMLHandler.setValueFromId() in Java EMF reads the tokens pairwise: a token
+   * with a `:` and no `#` names the type of the token after it and is not a
+   * reference itself.
+   */
+  protected setValuesFromIds(eObject: EObject, feature: EReference, value: string): void {
+    let typeName: string | undefined;
+
+    for (const token of value.trim().split(/\s+/)) {
+      if (!token) {
+        continue;
+      }
+
+      if (!token.includes('#') && token.includes(':')) {
+        typeName = token;
+        continue;
+      }
+
+      this.setValueFromId(eObject, feature, token, -1, typeName);
+      typeName = undefined;
     }
   }
 
