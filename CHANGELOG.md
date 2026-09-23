@@ -5,6 +5,14 @@ All notable changes to the `emfts` package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- A proxy in `eSuperTypes` no longer breaks every derivation over it ([#104](https://github.com/eclipse-fennec/emf.ts/issues/104)). `getEAllSuperTypes()`, `getEAllStructuralFeatures()`, `getEAllAttributes()`, `getEAllReferences()`, `getEAllOperations()`, `getEAllContainments()`, `getEStructuralFeature()` and `isSuperTypeOf()` all threw a `TypeError` — so a class with an unresolvable super type reported not even the features it defines itself, and an editor listing them got nothing.
+
+  Two causes, both of which Java EMF avoids by construction. `eSuperTypes` was a list that never resolved, so a proxy stayed in it even after its package was registered; it is a resolving list now, as `EClassImpl` hands out. And the stand-in for an unresolved reference was an `EProxyImpl`, a class of its own without `getESuperTypes()`; it is built through the factory of the expected type now, as `createObjectFromFeatureType()` does, so an unresolvable `EClass` is still an `EClass` with empty lists and the derivations walk over it. The XMI and JSON loaders both do this.
+
 ## [0.3.0-next.1] - 2026-09-18
 
 ### Changed — BREAKING

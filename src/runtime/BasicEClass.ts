@@ -19,7 +19,8 @@ import { ETypeParameter } from '../ETypeParameter.js';
 import { EGenericType } from '../EGenericType.js';
 import { EObject } from '../EObject.js';
 import { DerivedListCache, EList, EObjectContainmentWithInverseEListLazy, cachedDerivedList, createIndexedProxy, createMetamodelEList,
-  createMetamodelContainmentEList, replaceListContents } from '../EList.js';
+  createMetamodelContainmentEList,
+  createMetamodelResolvingEList, replaceListContents } from '../EList.js';
 
 /**
  * Basic EClass implementation
@@ -86,7 +87,10 @@ export class BasicEClass extends BasicEObject implements EClass {
 
   getESuperTypes(): EList<EClass> {
     if (this._eSuperTypes === null) {
-      this._eSuperTypes = createMetamodelEList<EClass>(this, () => this.resolveOwnFeature('eSuperTypes'));
+      this._eSuperTypes = createMetamodelResolvingEList(
+        this,
+        () => this.resolveOwnFeature('eSuperTypes')
+      ) as unknown as EList<EClass>;
     }
     return this._eSuperTypes;
   }

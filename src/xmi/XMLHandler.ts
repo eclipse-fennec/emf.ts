@@ -1091,11 +1091,40 @@ export class XMLHandler {
       eClass = eType && 'getESuperTypes' in eType ? eType as EClass : null;
     }
 
-    // Create the proxy
-    const proxy = new EProxyImpl(proxyURI, eClass || undefined);
+    const proxy = this.createProxyInstance(eClass, proxyURI);
     proxy.eSetResource(this.resource);
 
     return proxy;
+  }
+
+  /**
+   * Builds the object that stands in for an unresolved reference.
+   *
+   * Java EMF creates it through the factory of the expected type
+   * (createObjectFromFeatureType / createObjectFromTypeName) and only then sets
+   * the proxy URI, so the stand-in is a real instance of that type: an
+   * unresolvable EClass still answers getESuperTypes() with an empty list, and
+   * everything deriving over it keeps working instead of failing with a
+   * TypeError (#104).
+   *
+   * Where the type is unknown, or its factory cannot build one, the untyped
+   * EProxyImpl remains as the fallback.
+   */
+  protected createProxyInstance(eClass: EClass | null, proxyURI: URI): InternalEObject {
+    if (eClass) {
+      try {
+        const factory = eClass.getEPackage()?.getEFactoryInstance();
+        const instance = factory?.create(eClass);
+        if (instance && isInternalEObject(instance)) {
+          instance.eSetProxyURI(proxyURI);
+          return instance;
+        }
+      } catch {
+        // An abstract class, or a factory that does not know it - fall through.
+      }
+    }
+
+    return new EProxyImpl(proxyURI, eClass || undefined);
   }
 
   /**

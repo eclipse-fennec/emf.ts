@@ -1374,6 +1374,51 @@ export function createMetamodelEList<T>(
 }
 
 /**
+ * A metamodel list of references that resolves proxies on access.
+ *
+ * Java EMF hands out `eSuperTypes` as a resolving list, so a target that was
+ * not loadable at parse time is resolved the moment someone reads it. Without
+ * that a proxy stays in the list for good, even once its package is
+ * registered, and every derivation over it fails (#104).
+ */
+export class MetamodelResolvingEList extends EObjectEList {
+  private featureResolver: (() => EStructuralFeature | null) | null;
+
+  constructor(owner: EObject, featureResolver?: () => EStructuralFeature | null) {
+    super(owner, null as any);
+    this.featureResolver = featureResolver ?? null;
+  }
+
+  override getFeature(): EStructuralFeature | null {
+    if (this.feature === null && this.featureResolver !== null) {
+      this.feature = this.featureResolver();
+    }
+    return this.feature;
+  }
+
+  /** Every derived list is assembled from this one, so changes invalidate them. */
+  protected override dispatchNotification(
+    eventType: NotificationEventType,
+    oldValue: any,
+    newValue: any,
+    position: number
+  ): void {
+    bumpMetamodelRevision();
+    super.dispatchNotification(eventType, oldValue, newValue, position);
+  }
+}
+
+/**
+ * Creates a resolving metamodel list with index access.
+ */
+export function createMetamodelResolvingEList(
+  owner: EObject,
+  featureResolver?: () => EStructuralFeature | null
+): EList<EObject> {
+  return createIndexedProxy(new MetamodelResolvingEList(owner, featureResolver));
+}
+
+/**
  * Creates a containment list for a metamodel feature.
  *
  * Like createMetamodelEList(), but it sets `eContainer` on every element, as
