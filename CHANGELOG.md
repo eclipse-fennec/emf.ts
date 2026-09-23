@@ -5,6 +5,14 @@ All notable changes to the `emfts` package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- A multi-valued reference attribute in `Type URI` form is read pairwise ([#101](https://github.com/eclipse-fennec/emf.ts/issues/101)). EMF writes such an attribute as `Type URI Type URI …` where the target needs a type; splitting on whitespace alone turned every type token into a reference of its own, and since it carries no `#` it became a proxy into the referencing resource — one entry too many, pointing at nothing, with no error reported. Saving wrote that state back as `<valueFeature href="doc.xmi#ecore:EAttribute"/>`, so the damage went into the file and survived the next load.
+
+  `setValuesFromIds()` follows `XMLHandler.setValueFromId()` in Java EMF now: a token with a `:` and no `#` names the type of the token after it and is not a reference itself. The type reaches `createProxy()` through the `typeName` parameter, which the element form already used. The single-valued path was never affected, since `createProxy()` cuts the type off itself.
+
 ## [0.3.0-next.1] - 2026-09-18
 
 ### Changed — BREAKING
