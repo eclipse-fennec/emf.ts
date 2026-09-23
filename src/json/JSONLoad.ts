@@ -19,6 +19,7 @@ import { Resource } from '../Resource.js';
 import { URI } from '../URI.js';
 import { isEList } from '../EList.js';
 import { EProxyImpl } from '../runtime/EProxyImpl.js';
+import { InternalEObject, isInternalEObject } from '../InternalEObject.js';
 import { resolveClassifierInPackage } from '../runtime/resolveClassifierInPackage.js';
 
 /**
@@ -453,10 +454,33 @@ export class JSONLoad {
     const eType = feature.getEType();
     const eClass = eType && 'getESuperTypes' in eType ? eType as EClass : null;
 
-    const proxy = new EProxyImpl(proxyURI, eClass || undefined);
+    const proxy = this.createProxyInstance(eClass, proxyURI);
     proxy.eSetResource(this.resource);
 
     return proxy;
+  }
+
+  /**
+   * Builds the object that stands in for an unresolved reference, through the
+   * factory of the expected type - as Java EMF does, and as the XMI loader
+   * does since #104. A stand-in that is a real instance of its type keeps
+   * answering the methods of that type instead of failing with a TypeError.
+   */
+  protected createProxyInstance(eClass: EClass | null, proxyURI: URI): InternalEObject {
+    if (eClass) {
+      try {
+        const factory = eClass.getEPackage()?.getEFactoryInstance();
+        const instance = factory?.create(eClass);
+        if (instance && isInternalEObject(instance)) {
+          instance.eSetProxyURI(proxyURI);
+          return instance;
+        }
+      } catch {
+        // An abstract class, or a factory that does not know it - fall through.
+      }
+    }
+
+    return new EProxyImpl(proxyURI, eClass || undefined);
   }
 
   /**
