@@ -354,9 +354,14 @@ export class EcoreUtil {
   }
 
   /**
-   * Returns true if superType is a supertype of subType.
+   * Returns true if superType is a supertype of subType, a class counting as
+   * its own - the contract EClass.isSuperTypeOf() follows (#107).
    */
   static isSuperTypeOf(superType: EClass, subType: EClass): boolean {
+    if (superType === subType) {
+      return true;
+    }
+
     const superTypes = subType.getESuperTypes();
     for (const st of superTypes) {
       if (st === superType || EcoreUtil.isSuperTypeOf(superType, st)) {

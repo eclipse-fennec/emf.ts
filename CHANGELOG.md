@@ -5,6 +5,14 @@ All notable changes to the `emfts` package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `EClass.isSuperTypeOf()` counts a class as its own super type ([#107](https://github.com/eclipse-fennec/emf.ts/issues/107)). It asked `someClass.getEAllSuperTypes().includes(this)` alone, and a class is not among its own super types, so it answered `false` when asked about itself — where `EClassImpl.isSuperTypeOf()` states the case explicitly. `EcoreUtil.isSuperTypeOf()`, a separate static with the same name and its own recursion, had the same gap and follows the same contract now.
+
+  Nothing inside the library misbehaved: every caller guarded the identity case itself, which is why this only reached application code calling it directly. Those guards are redundant now rather than wrong, and are left in place.
+
 ## [0.3.0-next.1] - 2026-09-18
 
 ### Changed — BREAKING

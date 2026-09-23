@@ -278,8 +278,13 @@ export class BasicEClass extends BasicEObject implements EClass {
     this.xmlNameToFeature.set(xmlName, feature);
   }
 
+  /**
+   * Java: `someClass == this || someClass.getEAllSuperTypes().contains(this)`
+   * (EClassImpl.isSuperTypeOf). A class is not among its own super types, so
+   * the identity case has to be stated (#107).
+   */
   isSuperTypeOf(someClass: EClass): boolean {
-    return someClass.getEAllSuperTypes().includes(this);
+    return someClass === this || someClass.getEAllSuperTypes().includes(this);
   }
 
   getFeatureCount(): number {
