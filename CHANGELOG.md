@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A multi-valued reference attribute in `Type URI` form is read pairwise ([#101](https://github.com/eclipse-fennec/emf.ts/issues/101)). EMF writes such an attribute as `Type URI Type URI …` where the target needs a type; splitting on whitespace alone turned every type token into a reference of its own, and since it carries no `#` it became a proxy into the referencing resource — one entry too many, pointing at nothing, with no error reported. Saving wrote that state back as `<valueFeature href="doc.xmi#ecore:EAttribute"/>`, so the damage went into the file and survived the next load.
 
   `setValuesFromIds()` follows `XMLHandler.setValueFromId()` in Java EMF now: a token with a `:` and no `#` names the type of the token after it and is not a reference itself. The type reaches `createProxy()` through the `typeName` parameter, which the element form already used. The single-valued path was never affected, since `createProxy()` cuts the type off itself.
+- `EClass.isSuperTypeOf()` counts a class as its own super type ([#107](https://github.com/eclipse-fennec/emf.ts/issues/107)). It asked `someClass.getEAllSuperTypes().includes(this)` alone, and a class is not among its own super types, so it answered `false` when asked about itself — where `EClassImpl.isSuperTypeOf()` states the case explicitly. `EcoreUtil.isSuperTypeOf()`, a separate static with the same name and its own recursion, had the same gap and follows the same contract now.
+
+  Nothing inside the library misbehaved: every caller guarded the identity case itself, which is why this only reached application code calling it directly. Those guards are redundant now rather than wrong, and are left in place.
 
 ## [0.3.0-next.1] - 2026-09-18
 
