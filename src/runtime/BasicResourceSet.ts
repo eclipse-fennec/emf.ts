@@ -17,6 +17,43 @@ import { resolveClassifierInPackage } from './resolveClassifierInPackage.js';
 import { BasicEList, EList, createIndexedProxy } from '../EList.js';
 
 /**
+ * The resource list of a resource set, telling the set about every change so
+ * the URI lookup cache cannot go stale. Java keeps the same cache in
+ * `uriResourceMap` but never invalidates it, which is why `ResourceSetImpl`
+ * leaves it switched off by default.
+ */
+class ResourceSetEList extends BasicEList<Resource> {
+  constructor(private readonly onChange: () => void) {
+    super();
+  }
+
+  protected override didAdd(index: number, element: Resource): void {
+    this.onChange();
+    super.didAdd(index, element);
+  }
+
+  protected override didAddMany(index: number, elements: Resource[]): void {
+    this.onChange();
+    super.didAddMany(index, elements);
+  }
+
+  protected override didRemove(index: number, element: Resource): void {
+    this.onChange();
+    super.didRemove(index, element);
+  }
+
+  protected override didClear(oldData: Resource[]): void {
+    this.onChange();
+    super.didClear(oldData);
+  }
+
+  protected override didSet(index: number, newElement: Resource, oldElement: Resource): void {
+    this.onChange();
+    super.didSet(index, newElement, oldElement);
+  }
+}
+
+/**
  * Basic ResourceSet implementation
  */
 export class BasicResourceSet implements ResourceSet {
@@ -24,7 +61,8 @@ export class BasicResourceSet implements ResourceSet {
    * Not a metamodel list: adding a resource must not invalidate the derived
    * feature caches, so this uses a plain BasicEList rather than MetamodelEList.
    */
-  private resources: EList<Resource> = new BasicEList<Resource>();
+  private uriResourceMap: Map<string, Resource> = new Map();
+  private resources: EList<Resource> = new ResourceSetEList(() => this.uriResourceMap.clear());
   private packageRegistry: EPackageRegistry;
   private resourceFactoryRegistry: Resource.FactoryRegistry;
   private uriConverter: URIConverter;
@@ -44,19 +82,38 @@ export class BasicResourceSet implements ResourceSet {
   }
 
   getResource(uri: URI, loadOnDemand: boolean): Resource | null {
-    // Check if already loaded
+    const converter = this.getURIConverter();
+    const normalized = converter.normalize(uri).toString();
+    const key = uri.toString();
+
+    // Cached lookup, checked against the current mapping: entries survive
+    // changes to the URI map, which no hook can announce.
+    const cached = this.uriResourceMap.get(key);
+    if (cached) {
+      const cachedURI = cached.getURI();
+      if (cachedURI && converter.normalize(cachedURI).toString() === normalized) {
+        return cached;
+      }
+      this.uriResourceMap.delete(key);
+    }
+
+    // Already loaded? Compared through the URI converter, so a resource held
+    // under its logical URI is found by its physical one and the other way
+    // round - ResourceSetImpl.getResource() does the same (#110).
     const existing = this.resources.find(r => {
       const resUri = r.getURI();
-      return resUri && resUri.toString() === uri.toString();
+      return resUri !== null && converter.normalize(resUri).toString() === normalized;
     });
 
     if (existing) {
+      this.uriResourceMap.set(key, existing);
       return existing;
     }
 
     // Try to find in package registry (delegatedGetResource)
     const delegated = this.delegatedGetResource(uri, loadOnDemand);
     if (delegated) {
+      this.uriResourceMap.set(key, delegated);
       return delegated;
     }
 
@@ -67,6 +124,7 @@ export class BasicResourceSet implements ResourceSet {
     // Create and load resource
     const resource = this.createResource(uri);
     if (resource) {
+      this.uriResourceMap.set(key, resource);
       resource.load().catch(err => {
         console.error(`Failed to load resource ${uri}:`, err);
       });
@@ -127,22 +185,31 @@ export class BasicResourceSet implements ResourceSet {
    * Uses URIConverter.createInputStream() for loading.
    */
   async getResourceAsync(uri: URI, loadOnDemand: boolean): Promise<Resource | null> {
-    // 1. Already loaded? (sync)
+    // 1. Already loaded? (sync, through the URI converter as getResource does)
+    const converter = this.getURIConverter();
+    const normalized = converter.normalize(uri).toString();
     const existing = this.resources.find(r => {
       const resUri = r.getURI();
-      return resUri && resUri.toString() === uri.toString();
+      return resUri !== null && converter.normalize(resUri).toString() === normalized;
     });
-    if (existing) return existing;
+    if (existing) {
+      this.uriResourceMap.set(uri.toString(), existing);
+      return existing;
+    }
 
     // 2. Package Registry? (sync)
     const delegated = this.delegatedGetResource(uri, loadOnDemand);
-    if (delegated) return delegated;
+    if (delegated) {
+      this.uriResourceMap.set(uri.toString(), delegated);
+      return delegated;
+    }
 
     if (!loadOnDemand) return null;
 
     // 3. Create + AWAIT load (async via URIConverter)
     const resource = this.createResource(uri);
     if (resource) {
+      this.uriResourceMap.set(uri.toString(), resource);
       await resource.load();
     }
     return resource;
@@ -211,6 +278,7 @@ export class BasicResourceSet implements ResourceSet {
 
   setURIConverter(converter: URIConverter): void {
     this.uriConverter = converter;
+    this.uriResourceMap.clear();
   }
 
   /**
