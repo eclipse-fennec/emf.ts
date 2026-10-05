@@ -9,11 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A same-resource reference uses the target's ID attribute ([#117](https://github.com/eclipse-fennec/emf.ts/issues/117), [#84](https://github.com/eclipse-fennec/emf.ts/issues/84)). `getURIFragment()` always built the containment path, so a reference pointed at a position rather than at an object: insert an element ahead of the target and the old path still loads, now naming something else, with no error. It also made diffs unreadable, which is half the reason for declaring an ID. `ResourceImpl.getURIFragment()` asks `EcoreUtil.getID()` before building any path, and `getIDForEObject()` does that here — non-string ID types go through the factory, an unset or empty ID keeps the path. Loading already resolved the ID form, so this only changes what is written.
 - `ResourceSet.getResource()` looks resources up through the URI converter ([#110](https://github.com/eclipse-fennec/emf.ts/issues/110)). It compared URIs raw, so a URI map only ever affected loading through `createInputStream()`: a resource held under its logical URI was not findable by its physical one, in either direction of the mapping, and since `getEObject()` goes through `getResource()`, neither was anything inside it. Both sides are normalized before comparing now, as `ResourceSetImpl.getResource()` does.
 
   With `loadOnDemand` the consequence was worse than a failed lookup: not finding the resource meant creating a second, empty one and handing that back — no error, a plausible-looking result, the failure mode of [#93](https://github.com/eclipse-fennec/emf.ts/issues/93) reached from another direction. `EcoreUtil.resolve()` and the JSON loader both take that path, so it reached proxy resolution. `getResourceAsync()` had the same raw comparison and is fixed with it.
 
   The result is cached in a `uriResourceMap`, as in Java. Unlike Java's, this one is kept in step: the resource list reports additions and removals, replacing the URI converter clears it, and every hit is checked against the current normalization, which covers a mapping withdrawn or a resource whose URI changed — none of which a hook can announce.
+
+### Added
+
+- `setSupportIDRelativeURIFragmentPaths()` on `Resource` anchors a fragment path at the nearest container that has an ID — `/?mac-postgres/@ports.0` instead of `//@assets.0/@ports.0` ([#117](https://github.com/eclipse-fennec/emf.ts/issues/117)). Such a path survives changes above the anchor. Off by default, as `ResourceImpl.supportIDRelativeURIFragmentPaths()` is, and the `?` form is resolved on load.
 
 ## [0.3.0-next.2] - 2026-09-23
 
