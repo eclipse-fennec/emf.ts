@@ -14,6 +14,7 @@ import { Notifier } from '../notify/Notifier.js';
 import { Adapter } from '../notify/Adapter.js';
 import { Notification } from '../notify/Notification.js';
 import { EReference } from '../EReference.js';
+import { EDataType } from '../EDataType.js';
 import { EList, isEList, createResourceContentsEList } from '../EList.js';
 
 /**
@@ -66,6 +67,7 @@ export class BasicResource implements Resource, Notifier {
   private uri: URI | null;
   private resourceSet: ResourceSet | null = null;
   private contents: EList<EObject>;
+  protected idRelativeURIFragmentPaths: boolean = false;
   private loaded: boolean = false;
   private modified: boolean = false;
   private errors: Array<{ message: string; location?: string; line?: number; column?: number }> = [];
@@ -171,7 +173,16 @@ export class BasicResource implements Resource, Notifier {
       let current: EObject | null = null;
       let startIndex = 0;
 
-      if (isDoubleSlash) {
+      // An ID-relative path anchors at the object with that ID rather than at
+      // a position among the roots: /?<id>/@feature.0 (#117). Mirrors
+      // ResourceImpl.getEObjectForURIFragmentRootSegment().
+      if (parts[0].startsWith('?')) {
+        current = this.getEObjectByID(parts[0].substring(1));
+        if (!current) {
+          return null;
+        }
+        startIndex = 1;
+      } else if (isDoubleSlash) {
         // For '//' fragments: start with root object
         current = this.contents.size() > 0 ? this.contents.get(0) : null;
         if (!current) {
@@ -384,7 +395,18 @@ export class BasicResource implements Resource, Notifier {
    * collide (#89).
    */
   getURIFragment(eObject: EObject): string {
+    // An object with an ID attribute is addressed by that ID alone, which is
+    // what declaring one is for: a reference that survives reordering and
+    // reads as something in a diff. ResourceImpl.getURIFragment() asks
+    // EcoreUtil.getID() before it builds any path (#117, #84).
+    const id = this.getIDForEObject(eObject);
+    if (id !== null) {
+      return id;
+    }
+
     const segments: string[] = [];
+    const idRelative = this.supportIDRelativeURIFragmentPaths();
+    let anchor: string | null = null;
     let current: EObject | null = eObject;
 
     while (current) {
@@ -395,10 +417,80 @@ export class BasicResource implements Resource, Notifier {
       }
 
       segments.unshift(this.uriFragmentSegment(container, current));
+
+      // With ID-relative paths the climb stops at the first container that
+      // has an ID, and that ID becomes the root segment: /?<id>/@feature.0
+      if (idRelative) {
+        const containerID = this.getIDForEObject(container);
+        if (containerID !== null) {
+          anchor = containerID;
+          break;
+        }
+      }
+
       current = container;
     }
 
+    if (anchor !== null) {
+      segments.unshift(`?${anchor}`);
+    }
+
     return '/' + segments.join('/');
+  }
+
+  /**
+   * The value of the object's ID attribute, or null where it has none or it is
+   * unset. Mirrors EcoreUtil.getID(), which ResourceImpl consults through
+   * getIDForEObject().
+   */
+  protected getIDForEObject(eObject: EObject): string | null {
+    const idAttribute = eObject.eClass?.()?.getEIDAttribute?.();
+    if (!idAttribute) {
+      return null;
+    }
+
+    if (typeof eObject.eIsSet === 'function' && !eObject.eIsSet(idAttribute)) {
+      return null;
+    }
+
+    const value = eObject.eGet(idAttribute);
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    // Non-string ID types go through the factory, as EcoreUtil.getID() does.
+    if (typeof value !== 'string') {
+      const eType = idAttribute.getEType();
+      const factory = eType?.getEPackage?.()?.getEFactoryInstance?.();
+      if (factory && eType) {
+        try {
+          const converted = factory.convertToString(eType as EDataType, value);
+          return converted === '' ? null : converted;
+        } catch {
+          // Fall through to the plain conversion below.
+        }
+      }
+    }
+
+    return String(value);
+  }
+
+  /**
+   * Whether a fragment path may be built relative to the nearest container
+   * with an ID, giving `/?<id>/@feature.0` instead of a path from the root.
+   *
+   * Off by default, as in ResourceImpl. Such a path survives changes above
+   * the anchor, where a root-relative one does not.
+   */
+  protected supportIDRelativeURIFragmentPaths(): boolean {
+    return this.idRelativeURIFragmentPaths;
+  }
+
+  /**
+   * Turns ID-relative fragment paths on or off for this resource.
+   */
+  setSupportIDRelativeURIFragmentPaths(value: boolean): void {
+    this.idRelativeURIFragmentPaths = value;
   }
 
   /**
@@ -577,7 +669,7 @@ export class BasicResource implements Resource, Notifier {
   /**
    * Helper to find object by ID attribute
    */
-  private getEObjectByID(id: string): EObject | null {
+  protected getEObjectByID(id: string): EObject | null {
     const iterator = this.getAllContents();
     let result = iterator.next();
 
