@@ -16,6 +16,7 @@ import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { EPackageRegistry } from '../EPackage.js';
 import { isInternalEObject } from '../InternalEObject.js';
 import { resolveClassifierInPackage } from './resolveClassifierInPackage.js';
+import { eIsSetByValue } from './eIsSetByValue.js';
 import { EList, createMetamodelEList,
   createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
@@ -336,5 +337,14 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
       default:
         super.eSet(feature, newValue);
     }
+  }
+
+  /**
+   * This class keeps its state in typed fields rather than in the reflective
+   * settings map, so eIsSet() compares against the feature's default, as the
+   * generated eIsSet() does in EMF (#123).
+   */
+  override eIsSet(feature: EStructuralFeature): boolean {
+    return eIsSetByValue(this, feature);
   }
 }
