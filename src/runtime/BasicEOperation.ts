@@ -16,6 +16,7 @@ import { ETypeParameter } from '../ETypeParameter.js';
 import { BasicEObject } from './BasicEObject.js';
 import { EAnnotation } from '../EAnnotation.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
+import { eIsSetByValue } from './eIsSetByValue.js';
 import { EList, createMetamodelEList,
   createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
@@ -265,6 +266,15 @@ export class BasicEOperation extends BasicEObject implements EOperation {
         break;
     }
     super.eSet(feature, newValue);
+  }
+
+  /**
+   * This class keeps its state in typed fields rather than in the reflective
+   * settings map, so eIsSet() compares against the feature's default, as the
+   * generated eIsSet() does in EMF (#123).
+   */
+  override eIsSet(feature: EStructuralFeature): boolean {
+    return eIsSetByValue(this, feature);
   }
 }
 

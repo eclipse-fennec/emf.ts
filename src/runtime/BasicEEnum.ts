@@ -31,6 +31,25 @@ export class BasicEEnum extends BasicEDataType implements EEnum {
   }
 
   /**
+   * The instance of the first literal, as EEnumImpl.getDefaultValue() returns.
+   *
+   * Without this an enum attribute reported no default at all, since
+   * BasicEDataType switches on instanceClassName and finds nothing for an enum
+   * (#123). Generated code initializes such a field to the first literal, so
+   * the two agreed on nothing.
+   */
+  override getDefaultValue(): any {
+    const literals = this.getELiterals();
+    if (literals.size() === 0) {
+      return null;
+    }
+
+    const first: any = literals.get(0);
+    const instance = first?.getInstance?.();
+    return instance !== undefined && instance !== null ? instance : (first ?? null);
+  }
+
+  /**
    * Returns the literal with the given name or ordinal value.
    */
   getEEnumLiteral(nameOrValue: string | number): EEnumLiteral | null {

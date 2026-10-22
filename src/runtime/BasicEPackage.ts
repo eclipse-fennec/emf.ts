@@ -16,6 +16,8 @@ import { BasicEFactory } from './BasicEFactory.js';
 import { ecoreRegistry } from '../ecore/EcoreRegistry.js';
 import { EObject } from '../EObject.js';
 import { EReference } from '../EReference.js';
+import { eIsSetByValue } from './eIsSetByValue.js';
+import { EStructuralFeature } from '../EStructuralFeature.js';
 import {
   BasicEList,
   EList,
@@ -288,6 +290,15 @@ export class BasicEPackage extends BasicEObject implements EPackage {
       default:
         super.eSet(feature, newValue);
     }
+  }
+
+  /**
+   * This class keeps its state in typed fields rather than in the reflective
+   * settings map, so eIsSet() compares against the feature's default, as the
+   * generated eIsSet() does in EMF (#123).
+   */
+  override eIsSet(feature: EStructuralFeature): boolean {
+    return eIsSetByValue(this, feature);
   }
 }
 

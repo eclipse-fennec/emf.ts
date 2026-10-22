@@ -665,23 +665,16 @@ export class XMLSave {
    * an attribute that a document explicitly carried has to survive a round
    * trip even where its value happens to match the default (#95).
    *
-   * The value comparison stays in front of eIsSet() as the general case, and
-   * because the Ecore metamodel classes keep their state in typed fields
-   * rather than in the reflective settings map, so eIsSet() reports false for
-   * a name that was assigned through setName().
+   * It used to compare the value against the default before asking eIsSet(),
+   * as a workaround for the Ecore metaclasses, whose eIsSet() reported false
+   * for a name assigned through setName(). That workaround wrote attributes on
+   * every other object that were never set - rows="4", name="", layout from an
+   * enum - because any disagreement between an instance's initial value and
+   * getDefaultValue() looked like a change (#123). Those classes answer
+   * eIsSet() themselves now, so the comparison is gone.
    */
   protected shouldSaveAttribute(obj: EObject, attr: EAttribute, value: any): boolean {
-    // Get default value safely - may return null if type not properly set
-    let defaultValue: any = null;
-    try {
-      defaultValue = attr.getDefaultValue();
-    } catch {
-      // Ignore - use null as default
-    }
-
-    if (value !== defaultValue) {
-      return true;
-    }
+    void value;
 
     if (this.keepDefaults && attr.getDefaultValueLiteral() != null) {
       return true;

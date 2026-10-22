@@ -128,8 +128,14 @@ describe('EEnum values in instance data (Issue #70)', () => {
 
     it('rejects an ordinal outside the enum', async () => {
       const resource = await loadResource('7');
-      expect(getColor(resource.getContents()[0]) ?? null).toBeNull();
+      const item = resource.getContents()[0];
+
       expect(resource.getErrors()).toHaveLength(1);
+      // The feature stays unset. Reading it hands out the enum's default - the
+      // first literal, as EEnumImpl.getDefaultValue() defines (#123) - so what
+      // matters is that the rejected 7 did not land anywhere.
+      expect(item.eIsSet(item.eClass().getEStructuralFeature('color')!)).toBe(false);
+      expect(getColor(item)?.getValue?.()).not.toBe(7);
     });
 
     it('reports an unknown value instead of accepting it silently', async () => {
@@ -144,9 +150,11 @@ describe('EEnum values in instance data (Issue #70)', () => {
     it('keeps loading after an invalid value, leaving the feature unset', async () => {
       const resource = await loadResource('PURPLE');
       const item = resource.getContents()[0];
+
       expect(item).toBeDefined();
       expect(item.eClass().getName()).toBe('Item');
-      expect(getColor(item) ?? null).toBeNull();
+      expect(item.eIsSet(item.eClass().getEStructuralFeature('color')!)).toBe(false);
+      expect(getColor(item)?.getName?.()).not.toBe('PURPLE');
     });
   });
 
