@@ -19,7 +19,7 @@ import { ETypeParameter } from '../ETypeParameter.js';
 import { EGenericType } from '../EGenericType.js';
 import { EObject } from '../EObject.js';
 import { eIsSetByValue } from './eIsSetByValue.js';
-import { DerivedListCache, EList, EObjectContainmentWithInverseEListLazy, cachedDerivedList, createIndexedProxy, createMetamodelEList,
+import { DerivedListCache, EList, EObjectContainmentWithInverseEListLazy, cachedDerivedList, createIndexedProxy, createMetamodelEList, currentMetamodelRevision,
   createMetamodelContainmentEList,
   createMetamodelResolvingEList, replaceListContents } from '../EList.js';
 
@@ -50,6 +50,7 @@ export class BasicEClass extends BasicEObject implements EClass {
    */
   private allSuperTypesCache: { value: DerivedListCache<EClass> | null } = { value: null };
   private allFeaturesCache: { value: DerivedListCache<EStructuralFeature> | null } = { value: null };
+  private nameToFeatureCache: { revision: number; map: Map<string, EStructuralFeature> } | null = null;
   private attributesCache: { value: DerivedListCache<EAttribute> | null } = { value: null };
   private allAttributesCache: { value: DerivedListCache<EAttribute> | null } = { value: null };
   private referencesCache: { value: DerivedListCache<EReference> | null } = { value: null };
@@ -258,7 +259,7 @@ export class BasicEClass extends BasicEObject implements EClass {
   getEStructuralFeature(featureNameOrID: string | number): EStructuralFeature | null {
     if (typeof featureNameOrID === 'string') {
       // First try exact match by feature name
-      const byName = this.getEAllStructuralFeatures().find(f => f.getName() === featureNameOrID);
+      const byName = this.nameToFeature().get(featureNameOrID);
       if (byName) return byName;
       // Then try XML name mapping (ExtendedMetaData)
       const byXmlName = this.xmlNameToFeature.get(featureNameOrID);
@@ -274,6 +275,40 @@ export class BasicEClass extends BasicEObject implements EClass {
     } else {
       return this.getEAllStructuralFeatures()[featureNameOrID] || null;
     }
+  }
+
+  /**
+   * Name to feature, built once per metamodel revision.
+   *
+   * The lookup used to scan getEAllStructuralFeatures() on every call, which
+   * an OCL evaluator does for every `self.x` navigation - measured at up to
+   * 17 us per call on a class with 200 inherited features (#126).
+   * EClassImpl.getEStructuralFeature(String) keeps the same map in
+   * eNameToFeatureMap.
+   *
+   * The cache rides on the metamodel revision counter, so it is rebuilt
+   * whenever features or super types change - the same signal the derived
+   * lists use.
+   */
+  private nameToFeature(): Map<string, EStructuralFeature> {
+    const revision = currentMetamodelRevision();
+    const cached = this.nameToFeatureCache;
+    if (cached !== null && cached.revision === revision) {
+      return cached.map;
+    }
+
+    const map = new Map<string, EStructuralFeature>();
+    for (const feature of this.getEAllStructuralFeatures()) {
+      const name = feature.getName();
+      // The first entry wins, as the linear search did and as
+      // EClassImpl.getEStructuralFeature() keeps it by putting a duplicate back.
+      if (name !== null && name !== undefined && !map.has(name)) {
+        map.set(name, feature);
+      }
+    }
+
+    this.nameToFeatureCache = { revision, map };
+    return map;
   }
 
   /**

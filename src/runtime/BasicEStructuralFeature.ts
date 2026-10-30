@@ -17,6 +17,7 @@ import { EPackageRegistry } from '../EPackage.js';
 import { isInternalEObject } from '../InternalEObject.js';
 import { resolveClassifierInPackage } from './resolveClassifierInPackage.js';
 import { eIsSetByValue } from './eIsSetByValue.js';
+import { bumpMetamodelRevision } from '../EList.js';
 import { EList, createMetamodelEList,
   createMetamodelContainmentEList, replaceListContents } from '../EList.js';
 
@@ -46,6 +47,13 @@ export abstract class BasicEStructuralFeature extends BasicEObject implements ES
   }
 
   setName(value: string | null): void {
+    if (value !== this.name) {
+      // The name is a key of EClass's name-to-feature map, and renaming a
+      // feature does not touch any list, so nothing else would announce it.
+      // EStructuralFeatureImpl.setName() reports the same thing to its class:
+      //   ((EClassImpl)eContainer).getESuperAdapter().setFlags(STRUCTURAL_FEATURES)
+      bumpMetamodelRevision();
+    }
     this.name = value;
   }
 
