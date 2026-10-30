@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `EClass.getEStructuralFeature(name)` answers from a name-to-feature map instead of scanning ([#126](https://github.com/eclipse-fennec/emf.ts/issues/126)). The lookup walked `getEAllStructuralFeatures()` on every call, which an OCL evaluator does for every `self.x` navigation: measured at 4.7 µs per call on a class with 60 inherited features and 16.8 µs with 200, both for a feature near the end of the list. With the map it is 0.04 µs in both cases. `EClassImpl` keeps the same map in `eNameToFeatureMap`, and as there the first of two same-named features wins, so the answers are unchanged. The cache rides on the metamodel revision counter that the derived lists already use.
+
 ### Fixed
+
+- Renaming a feature invalidates the caches of its class ([#126](https://github.com/eclipse-fennec/emf.ts/issues/126)). `BasicEStructuralFeature.setName()` wrote the field without announcing anything, which no caller noticed while the lookup scanned the list on every call. `EStructuralFeatureImpl.setName()` reports `STRUCTURAL_FEATURES` to its class for exactly this reason; here it bumps the metamodel revision.
 
 - The serializer no longer writes attributes that were never set ([#123](https://github.com/eclipse-fennec/emf.ts/issues/123)). `shouldSaveAttribute()` compared the value against the default before asking `eIsSet()`, so any disagreement between an object's initial value and `getDefaultValue()` wrote the attribute: `rows="4"` where the generated field and the metadata default differ in type, `name=""` because a generated `EString` field starts empty, and an enum value because `BasicEEnum` reported no default at all. A model made with the emf.ts.ui editor grew with every save. The decision is `eIsSet() || keepDefaults && getDefaultValueLiteral() != null` now, as `XMLSaveImpl.shouldSaveFeature()` has it, and an explicitly set default still survives — which is what #95 was about.
 - The Ecore metaclasses answer `eIsSet()` for their typed fields ([#123](https://github.com/eclipse-fennec/emf.ts/issues/123)). They keep their state in fields rather than in the reflective settings map, so the presence check in `BasicEObject.eIsSet()` reported `false` for a name assigned through `setName()`. That was the reason the serializer compared values at all; the workaround then broke every other object. Ten classes — and through them `EAttribute`, `EReference` and `EEnum` — now compare against the feature's default, as the generated `eIsSet()` does in EMF, with a list counting as set while it holds something. Without this, saving a hand-built metamodel lost `name`, `nsURI` and `abstract`; no test covered that, which is how #95 shipped.
